@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"aura-api/internal/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
 
 	"github.com/go-pg/migrations/v8"
 	"github.com/go-pg/pg/v10"

@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 
-	"aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
 )
 
 type authMiddleware struct {

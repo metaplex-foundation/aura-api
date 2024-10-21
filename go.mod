@@ -1,4 +1,4 @@
-module aura-api
+module github.com/adm-metaex/aura-api
 
 go 1.22
 

@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
 
-	"aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
 )
 
 // RateLimiterStore is the interface to be implemented by custom stores.

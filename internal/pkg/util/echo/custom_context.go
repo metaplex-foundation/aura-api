@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"aura-api/internal/pkg/util"
+	"github.com/adm-metaex/aura-api/internal/pkg/util"
 )
 
 const (

@@ -16,15 +16,15 @@ import (
 	"github.com/swaggo/echo-swagger" //nolint:goimports
 	"google.golang.org/grpc"
 
-	"aura-api/internal/api/config"
-	_ "aura-api/internal/api/docs"
-	"aura-api/internal/api/storage/clickhouse"
-	"aura-api/internal/api/storage/postgres"
-	"aura-api/internal/pkg/configtypes"
-	"aura-api/internal/pkg/email"
-	"aura-api/internal/pkg/log"
-	"aura-api/internal/pkg/proto"
-	echoUtil "aura-api/internal/pkg/util/echo"
+	"github.com/adm-metaex/aura-api/internal/api/config"
+	_ "github.com/adm-metaex/aura-api/internal/api/docs"
+	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
+	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/internal/pkg/email"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/proto"
+	echoUtil "github.com/adm-metaex/aura-api/internal/pkg/util/echo"
 )
 
 type api struct { //nolint:govet // aligned to 176 bytes

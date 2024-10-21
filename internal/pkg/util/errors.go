@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"aura-api/internal/pkg/types"
+	"github.com/adm-metaex/aura-api/internal/pkg/types"
 )
 
 func ErrMsg(err error) string {
