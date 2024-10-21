@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/log"
 )
 
 func Map[T any, I any](ss []T, callback func(T) I) []I {

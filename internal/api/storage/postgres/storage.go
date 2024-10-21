@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
-
 	"github.com/go-pg/migrations/v8"
 	"github.com/go-pg/pg/v10"
 	"github.com/go-pg/pg/v10/orm"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
 )
 
 type Storage struct {

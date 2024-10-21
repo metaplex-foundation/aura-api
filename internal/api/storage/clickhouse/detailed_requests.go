@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/log"
-	"github.com/adm-metaex/aura-api/internal/pkg/proto"
+	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/proto"
 )
 
 func (s *Storage) BatchInsertDetailedRequests(stats []*proto.DetailedRequest) error {

@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
 )
 
 type Config struct {
