@@ -9,9 +9,9 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 
-	"aura-api/internal/pkg/log"
-	"aura-api/internal/pkg/proto"
-	"aura-api/internal/pkg/util"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/proto"
+	"github.com/adm-metaex/aura-api/internal/pkg/util"
 )
 
 type StatsFilterCondition struct {

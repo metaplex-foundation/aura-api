@@ -4,11 +4,11 @@ import (
 	"flag"
 	"time"
 
-	"aura-api/internal/api"
-	"aura-api/internal/api/config"
-	"aura-api/internal/pkg/configtypes"
-	"aura-api/internal/pkg/log"
-	"aura-api/internal/pkg/util"
+	"github.com/adm-metaex/aura-api/internal/api"
+	"github.com/adm-metaex/aura-api/internal/api/config"
+	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/util"
 )
 
 const (

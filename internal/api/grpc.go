@@ -5,9 +5,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"aura-api/internal/api/storage/clickhouse"
-	"aura-api/internal/api/storage/postgres"
-	"aura-api/internal/pkg/proto"
+	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
+	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/pkg/proto"
 )
 
 type auraServer struct {

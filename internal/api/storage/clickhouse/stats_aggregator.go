@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"aura-api/internal/pkg/log"
-	"aura-api/internal/pkg/util"
+	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/internal/pkg/util"
 )
 
 const aggregatorInterval = 12 * time.Hour
