@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/log"
 )
 
 type UserSubscriptionUsage struct {

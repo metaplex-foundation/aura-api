@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/pkg/log"
-	"github.com/adm-metaex/aura-api/internal/pkg/proto"
-	"github.com/adm-metaex/aura-api/internal/pkg/util"
+	"github.com/adm-metaex/aura-api/pkg/log"
+	proto2 "github.com/adm-metaex/aura-api/pkg/proto"
+	"github.com/adm-metaex/aura-api/pkg/util"
 )
 
 const (
@@ -18,17 +18,17 @@ const (
 
 type (
 	collectorPossibleTypes interface {
-		*proto.Stat | *proto.DetailedRequest
+		*proto2.Stat | *proto2.DetailedRequest
 	}
 	Collector[T collectorPossibleTypes] struct {
-		auraAPI       proto.AuraClient
+		auraAPI       proto2.AuraClient
 		cache         []T
 		mx            sync.Mutex
 		flushInterval time.Duration
 	}
 )
 
-func NewCollector[T collectorPossibleTypes](ctx context.Context, flushInterval time.Duration, auraAPI proto.AuraClient) (c *Collector[T], err error) {
+func NewCollector[T collectorPossibleTypes](ctx context.Context, flushInterval time.Duration, auraAPI proto2.AuraClient) (c *Collector[T], err error) {
 	if auraAPI == nil {
 		return nil, errors.New("empty auraAPI")
 	}
@@ -66,12 +66,12 @@ func (c *Collector[T]) flushData(ctx context.Context) error {
 		timeNow = time.Now()
 	)
 	switch e := any(entries).(type) {
-	case []*proto.Stat:
+	case []*proto2.Stat:
 		caller = "BatchInsertStats"
-		_, err = c.auraAPI.BatchInsertStats(ctx, &proto.BatchInsertStatsReq{Stats: e})
-	case []*proto.DetailedRequest:
+		_, err = c.auraAPI.BatchInsertStats(ctx, &proto2.BatchInsertStatsReq{Stats: e})
+	case []*proto2.DetailedRequest:
 		caller = "BatchInsertDetailedRequests"
-		_, err = c.auraAPI.BatchInsertDetailedRequests(ctx, &proto.BatchInsertDetailedRequestsReq{Req: e})
+		_, err = c.auraAPI.BatchInsertDetailedRequests(ctx, &proto2.BatchInsertDetailedRequestsReq{Req: e})
 	default:
 		return fmt.Errorf("unknow type to handle: %T", e)
 	}

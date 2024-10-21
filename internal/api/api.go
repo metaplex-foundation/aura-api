@@ -20,11 +20,11 @@ import (
 	_ "github.com/adm-metaex/aura-api/internal/api/docs"
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
-	"github.com/adm-metaex/aura-api/internal/pkg/configtypes"
-	"github.com/adm-metaex/aura-api/internal/pkg/email"
-	"github.com/adm-metaex/aura-api/internal/pkg/log"
-	"github.com/adm-metaex/aura-api/internal/pkg/proto"
-	echoUtil "github.com/adm-metaex/aura-api/internal/pkg/util/echo"
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/pkg/email"
+	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/proto"
+	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
 type api struct { //nolint:govet // aligned to 176 bytes
@@ -114,13 +114,13 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 
 func initAPIServer() *echo.Echo {
 	s := echo.New()
-	echoUtil.SetupServer(s, false)
+	echo2.SetupServer(s, false)
 
-	echoUtil.InitBaseMiddlewares(s, middleware.CORSWithConfig(middleware.CORSConfig{
+	echo2.InitBaseMiddlewares(s, middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
-	s.Use(echoUtil.RequestTimeoutMiddleware(nil))
+	s.Use(echo2.RequestTimeoutMiddleware(nil))
 
 	return s
 }
