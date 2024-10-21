@@ -1,0 +1,278 @@
+linters:
+  fast: false
+  # Enable specific linter
+  # https://golangci-lint.run/usage/linters/
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - execinquery
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gocyclo
+    #    - goerr113
+    - gofmt
+    - goheader
+    - goimports
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - grouper
+    - importas
+    - ineffassign
+    - interfacebloat
+    - loggercheck
+    - maintidx
+    - makezero
+    - misspell
+    - musttag
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - tenv
+    - testableexamples
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gosmopolitan
+    - interfacebloat
+    - loggercheck
+    - mirror
+    - musttag
+    - testableexamples
+    - zerologlint
+    - gochecksumtype
+    - inamedparam
+    - protogetter
+    - testifylint
+
+linters-settings:
+  govet:
+    enable:
+      - asmdecl
+      - assign
+      - atomic
+      - atomicalign
+      - bools
+      - buildtag
+      - cgocall
+      - composites
+      - copylocks
+      - deepequalerrors
+      - errorsas
+      - fieldalignment
+      - findcall
+      - framepointer
+      - httpresponse
+      - ifaceassert
+      - loopclosure
+      - lostcancel
+      - nilfunc
+      - nilness
+      - printf
+      - reflectvaluecompare
+      - shift
+      - sigchanyzer
+      - sortslice
+      - stdmethods
+      - stringintconv
+      - structtag
+      - testinggoroutine
+      - tests
+      - unmarshal
+      - unreachable
+      - unsafeptr
+      - unusedresult
+      - unusedwrite
+  gocritic:
+    disabled-checks:
+      - whyNoLint
+      - commentedOutCode
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+  #      - experimental
+  #      - opinionated
+  errorlint:
+    errorf: false
+  stylecheck:
+    checks: [ "all", "-ST1005" ]
+  staticcheck:
+    # SAxxxx checks in https://staticcheck.io/docs/configuration/options/#checks
+    checks: [ "all" ]
+  nolintlint:
+    require-specific: true
+  errcheck:
+    check-type-assertions: true
+  revive:
+    rules:
+      - name: add-constant
+        disabled: false
+        arguments:
+          - maxLitCount: "3"
+            allowStrs: '"","}","{",":"'
+            allowInts: "0,1,2,3,4,5,6,10,64,1024,100"
+            allowFloats: "0.0"
+      - name: atomic
+        disabled: false
+      - name: bool-literal-in-expr
+        disabled: false
+      - name: call-to-gc
+        disabled: false
+      - name: confusing-naming
+        disabled: false
+      - name: confusing-results
+        disabled: false
+      - name: constant-logical-expr
+        disabled: false
+      - name: deep-exit
+        disabled: false
+      - name: defer
+        disabled: false
+      - name: duplicated-imports
+        disabled: false
+      - name: early-return
+        disabled: false
+      - name: empty-block
+        disabled: false
+      - name: empty-lines
+        disabled: false
+      - name: empty-lines
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: errorf
+        disabled: false
+      - name: get-return
+        disabled: false
+      - name: identical-branches
+        disabled: false
+      - name: if-return
+        disabled: false
+      - name: increment-decrement
+        disabled: false
+      - name: indent-error-flow
+        disabled: false
+      - name: import-shadowing
+        disabled: false
+      - name: modifies-parameter
+        disabled: false
+      - name: modifies-value-receiver
+        disabled: false
+      - name: optimize-operands-order
+        disabled: false
+      - name: range
+        disabled: false
+      - name: range-val-in-closure
+        disabled: false
+      - name: range-val-address
+        disabled: false
+      - name: receiver-naming
+        disabled: false
+      - name: redefines-builtin-id
+        disabled: false
+      - name: string-of-int
+        disabled: false
+      - name: struct-tag
+        disabled: false
+      - name: superfluous-else
+        disabled: false
+      - name: time-equal
+        disabled: false
+      - name: time-naming
+        disabled: false
+      - name: var-naming
+        disabled: false
+      - name: var-declaration
+        disabled: false
+      - name: unconditional-recursion
+        disabled: false
+      - name: unexported-naming
+        disabled: false
+      - name: unhandled-error
+        disabled: false
+      - name: unnecessary-stmt
+        disabled: false
+      - name: unreachable-code
+        disabled: false
+      - name: unused-parameter
+        disabled: false
+      - name: unused-receiver
+        disabled: false
+      - name: useless-break
+        disabled: false
+      - name: waitgroup-by-value
+        disabled: false
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "github.com/pkg/errors"
+            desc: Should be replaced by standard lib errors package
+  gomoddirectives:
+    replace-allow-list:
+      - github.com/gogo/protobuf
+
+issues:
+  exclude:
+    - "add-constant: string literal \"(ReadBool|ReadUint|ReadString|ReadNBytes)"
+    - "unhandled-error: Unhandled error in call to function b.(WriteString|Write)"
+  exclude-rules:
+    - path: /
+      linters:
+        - typecheck
+    - path: '(.+)_test\.go'
+      linters:
+        - govet
+        - gocyclo
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+  fix: false
+
+output:
+  uniq-by-line: false
+  sort-results: true
