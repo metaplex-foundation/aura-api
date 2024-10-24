@@ -1,0 +1,23 @@
+{
+    "consumes": [
+        "application/json"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Swagger API server for Aura API.",
+        "title": "Swagger Aura",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "1.0.17"
+    },
+    "basePath": "/",
+    "paths": {},
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "description": "\"Type \\\"Bearer \\\" and then your API Token",
+            "type": "apiKey",
+            "name": "\"Authentication\"",
+            "in": "header"
+        }
+    }
+}
