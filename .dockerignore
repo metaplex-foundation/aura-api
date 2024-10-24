@@ -1,0 +1,8 @@
+.git
+.history
+/scanner
+/api
+/proxy
+*.pem
+.env*
+!.env*.example

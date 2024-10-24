@@ -1,0 +1,17 @@
+basePath: /
+consumes:
+- application/json
+info:
+  contact: {}
+  description: Swagger API server for Aura API.
+  termsOfService: http://swagger.io/terms/
+  title: Swagger Aura
+  version: 1.0.17
+paths: {}
+securityDefinitions:
+  ApiKeyAuth:
+    description: '"Type \"Bearer \" and then your API Token'
+    in: header
+    name: '"Authentication"'
+    type: apiKey
+swagger: "2.0"
