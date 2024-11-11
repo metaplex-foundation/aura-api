@@ -10,9 +10,12 @@ import (
 // struct field names are used for env variable names. Edit with care
 type (
 	APIConfig struct {
-		Hostname   string `envconfig:"HOSTNAME" default:"unspecified" required:"true" split_words:"true"`
-		CertFile   string `required:"false" split_words:"true"`
-		EmailToken string `required:"true" split_words:"true"`
+		Hostname             string `envconfig:"HOSTNAME" default:"unspecified" required:"true" split_words:"true"`
+		CertFile             string `required:"false" split_words:"true"`
+		EmailToken           string `required:"true" split_words:"true"`
+		DynamicEnvironmentID string `required:"true" split_words:"true"`
+		DynamicJWKSEndpoint  string `envconfig:"API_DYNAMIC_JWKS_ENDPOINT" required:"true" split_words:"true"`
+		DynamicAPIToken      string `envconfig:"API_DYNAMIC_API_TOKEN" required:"true" split_words:"true"`
 
 		Port        uint64 `required:"true" split_words:"true"`
 		GRPCPort    uint64 `required:"true" split_words:"true"`
