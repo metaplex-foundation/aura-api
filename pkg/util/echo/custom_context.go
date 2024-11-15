@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/adm-metaex/aura-api/pkg/dynamic"
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
 
@@ -17,6 +18,7 @@ const (
 type CustomContext struct {
 	metrics     *util.RuntimeMetrics
 	reqDuration time.Time
+	dynamicUser *dynamic.User
 
 	echo.Context
 }
@@ -64,4 +66,10 @@ func (c *CustomContext) InitMetrics() {
 }
 func (c *CustomContext) GetMetrics() *util.RuntimeMetrics {
 	return c.metrics
+}
+func (c *CustomContext) SetDynamicUser(u *dynamic.User) {
+	c.dynamicUser = u
+}
+func (c *CustomContext) GetDynamicUser() *dynamic.User {
+	return c.dynamicUser
 }

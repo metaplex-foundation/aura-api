@@ -13,14 +13,18 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
-	"github.com/swaggo/echo-swagger" //nolint:goimports
+	echoSwagger "github.com/swaggo/echo-swagger"
+
+	//nolint:goimports
 	"google.golang.org/grpc"
 
 	"github.com/adm-metaex/aura-api/internal/api/config"
 	_ "github.com/adm-metaex/aura-api/internal/api/docs"
+	"github.com/adm-metaex/aura-api/internal/api/middlewares"
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/pkg/dynamic"
 	"github.com/adm-metaex/aura-api/pkg/email"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/proto"
@@ -104,7 +108,15 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		}
 	}
 
-	a.initAPIHandlers()
+	dynamicClient, err := dynamic.NewDynamicClient(cfg.API.DynamicAPIToken, cfg.API.DynamicEnvironmentID)
+	if err != nil {
+		return nil, fmt.Errorf("NewDynamicClient: %w", err)
+	}
+	authMiddleware, err := middlewares.NewAuthMiddleware(ctx, cfg.API.DynamicJWKSEndpoint, dynamicClient)
+	if err != nil {
+		return nil, fmt.Errorf("NewAuthMiddleware: %w", err)
+	}
+	a.initAPIHandlers(authMiddleware)
 	a.initAPIDocsHandlers()
 
 	go chStorage.RunStatsAggregator(ctx)
@@ -141,12 +153,13 @@ func (a *api) initAPIDocsHandlers() {
 	a.routerAPIDoc.GET("*", echoSwagger.WrapHandler)
 }
 
-func (a *api) initAPIHandlers() {
+func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	log.Logger.API.Infof("initAPIHandlers")
 
 	// protected
-	//authMW := middlewares.LoadUser(a.authProvider)
-	//subscriptionGroup := a.router.Group("/subscription") // authMW
+	authMW := authMiddleware.LoadUser()
+	protectedGroup := a.router.Group("", authMW)
+	protectedGroup.GET("/user", a.getUserHandler)
 }
 
 func (a *api) Run() (err error) {
