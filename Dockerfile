@@ -3,8 +3,7 @@ FROM golang:1.22-alpine3.19 as builder
 WORKDIR /app
 
 COPY . .
-
-RUN --mount=type=ssh CGO_ENABLED=1 GOOS=linux go build -a -v -installsuffix cgo --tags "sqlite_foreign_keys" ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -a -v -installsuffix cgo ./cmd/api
 
 FROM alpine:3.19
 RUN apk add ca-certificates

@@ -8,7 +8,7 @@ export APP_VERSION=latest
 build:
 	@echo "building ${APP_NAME} with version ${APP_VERSION}"
 	@echo "building docker image ${APP_IMAGE}"
-	@docker build -f Dockerfile --ssh default . -t ${APP_NAME}:${APP_VERSION}
+	@docker build -f Dockerfile . -t ${APP_NAME}:${APP_VERSION}
 
 start:
 	@docker-compose up -d
