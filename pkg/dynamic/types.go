@@ -20,7 +20,7 @@ type (
 		RefId                     string                 `json:"refId"`
 		SignerRefId               string                 `json:"signerRefId"`
 		Email                     string                 `json:"email"`
-		Id                        string                 `json:"id"`
+		ID                        string                 `json:"id"`
 		NameService               NameService            `json:"name_service"`
 		PublicIdentifier          string                 `json:"public_identifier"`
 		WalletName                string                 `json:"wallet_name"`
@@ -67,14 +67,14 @@ type (
 		Position       int    `json:"position"`
 	}
 	Session struct {
-		Id        string `json:"id"`
+		ID        string `json:"id"`
 		CreatedAt string `json:"createdAt"`
 		IpAddress string `json:"ipAddress"`
 		UserAgent string `json:"userAgent"`
 		RevokedAt string `json:"revokedAt"`
 	}
 	Wallet struct {
-		Id             string           `json:"id"`
+		ID             string           `json:"id"`
 		Name           string           `json:"name"`
 		Chain          string           `json:"chain"`
 		PublicKey      string           `json:"publicKey"`
@@ -83,32 +83,32 @@ type (
 		LastSelectedAt string           `json:"lastSelectedAt"`
 	}
 	ChainalysisCheck struct {
-		Id              string `json:"id"`
+		ID              string `json:"id"`
 		CreatedAt       string `json:"createdAt"`
 		Result          string `json:"result"`
 		WalletPublicKey string `json:"walletPublicKey"`
 		Response        string `json:"response"`
 	}
 	OauthAccount struct {
-		Id              string `json:"id"`
+		ID              string `json:"id"`
 		Provider        string `json:"provider"`
 		AccountUsername string `json:"accountUsername"`
 	}
 	MfaDevice struct {
 		Type       string `json:"type"`
 		Verified   bool   `json:"verified"`
-		Id         string `json:"id"`
+		ID         string `json:"id"`
 		CreatedAt  string `json:"createdAt"`
 		VerifiedAt string `json:"verifiedAt"`
 		Default    bool   `json:"default"`
 		Alias      string `json:"alias"`
 	}
 	User struct {
-		Id                           string                 `json:"id"`
-		ProjectEnvironmentId         string                 `json:"projectEnvironmentId"`
+		ID                           string                 `json:"id"`
+		ProjectEnvironmentID         string                 `json:"projectEnvironmentId"`
 		VerifiedCredentials          []VerifiedCredential   `json:"verifiedCredentials"`
-		LastVerifiedCredentialId     string                 `json:"lastVerifiedCredentialId"`
-		SessionId                    string                 `json:"sessionId"`
+		LastVerifiedCredentialID     string                 `json:"lastVerifiedCredentialId"`
+		SessionID                    string                 `json:"sessionId"`
 		Alias                        string                 `json:"alias"`
 		Country                      string                 `json:"country"`
 		Email                        string                 `json:"email"`

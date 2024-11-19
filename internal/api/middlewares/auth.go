@@ -22,7 +22,7 @@ import (
 type AuthMiddleware struct {
 	dynamicClient *dynamic.Client
 	jwksClient    *keyfunc.JWKS
-	tokenCache    *cache.Cache
+	userCache     *cache.Cache
 }
 
 const (
@@ -60,7 +60,7 @@ func NewAuthMiddleware(ctx context.Context, jwksEndpointURL string, dynamicClien
 
 	a = &AuthMiddleware{
 		jwksClient:    jwks,
-		tokenCache:    cache.New(cacheTTL, cacheCleanup),
+		userCache:     cache.New(cacheTTL, cacheCleanup),
 		dynamicClient: dynamicClient,
 	}
 
@@ -78,45 +78,35 @@ func isTokenExpired(err error) bool {
 	return false
 }
 
-func (a *AuthMiddleware) getTokenInfo(authToken string) (userID string, err error) {
-	// try to get from tokenCache
-	if cachedToken, ok := a.tokenCache.Get(authToken); ok {
-		if userID, ok = cachedToken.(string); ok {
-			return userID, nil
-		}
-
-		log.Logger.API.Error("authMiddleware: getTokenInfo: fail cast to *jwt.Token")
-	}
-
+func (a *AuthMiddleware) getTokenInfo(authToken string) (userID string, expireTimestamp float64, err error) {
 	tokenInfo, err := jwt.Parse(authToken, a.jwksClient.Keyfunc)
 	if err != nil {
 		if isTokenExpired(err) {
-			return userID, ErrTokenIsExpired
+			return userID, expireTimestamp, ErrTokenIsExpired
 		}
 
 		log.Logger.API.Errorf("getTokenInfo: jwt.Parse: %s", err)
-		return userID, ErrAuthUnknown
+		return userID, expireTimestamp, ErrAuthUnknown
 	}
 	if tokenInfo == nil || !tokenInfo.Valid {
-		return userID, ErrTokenInvalid
+		return userID, expireTimestamp, ErrTokenInvalid
 	}
 	claims, ok := tokenInfo.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Logger.API.Error("authMiddleware: getTokenInfo: fail cast to jwt.MapClaims")
-		return userID, ErrTokenInvalid
+		return userID, expireTimestamp, ErrTokenInvalid
 	}
 	if scopes, ok := claims["scopes"].([]interface{}); ok {
 		for _, scope := range scopes {
 			if scopeStr, ok := scope.(string); ok && scopeStr == "requiresAdditionalAuth" {
-				return userID, ErrTokenRequiresAdditionalAuth
+				return userID, expireTimestamp, ErrTokenRequiresAdditionalAuth
 			}
 		}
 	}
 	expiredAt, ok := claims["exp"]
 	if !ok {
-		return userID, ErrTokenWithoutExpire
+		return userID, expireTimestamp, ErrTokenWithoutExpire
 	}
-	var expireTimestamp float64
 	switch exp := expiredAt.(type) {
 	case float64:
 		expireTimestamp = exp
@@ -124,30 +114,23 @@ func (a *AuthMiddleware) getTokenInfo(authToken string) (userID string, err erro
 		expireTimestamp, err = exp.Float64()
 		if err != nil {
 			log.Logger.API.Errorf("authMiddleware: getTokenInfo: exp.Float64: %s", err)
-			return userID, ErrTokenWithoutExpire
+			return userID, expireTimestamp, ErrTokenWithoutExpire
 		}
 	default:
-		return userID, ErrTokenWithoutExpire
+		return userID, expireTimestamp, ErrTokenWithoutExpire
 	}
 	usrID, ok := claims["sub"]
 	if !ok {
 		log.Logger.API.Error("authMiddleware: getTokenInfo: no userID in claims")
-		return userID, ErrUserNotFound
+		return userID, expireTimestamp, ErrUserNotFound
 	}
 	userID, ok = usrID.(string)
 	if !ok {
 		log.Logger.API.Error("authMiddleware: getTokenInfo: no userIDString in claims")
-		return userID, ErrUserNotFound
+		return userID, expireTimestamp, ErrUserNotFound
 	}
 
-	// use ttl not greater than tokenCacheDefaultTTL
-	ttl := time.Duration(int64(expireTimestamp)-time.Now().Unix()) * time.Second
-	if ttl > tokenCacheDefaultTTL {
-		ttl = tokenCacheDefaultTTL
-	}
-	a.tokenCache.Set(authToken, userID, ttl)
-
-	return userID, nil
+	return userID, expireTimestamp, nil
 }
 
 func (*AuthMiddleware) getAuthToken(c echo.Context) (res string, err error) {
@@ -169,7 +152,16 @@ func (a *AuthMiddleware) LoadUser() echo.MiddlewareFunc {
 			if err != nil {
 				return err
 			}
-			userID, err := a.getTokenInfo(authToken)
+			if cachedUser, ok := a.userCache.Get(authToken); ok {
+				if user, ok := cachedUser.(*dynamic.User); ok && user != nil {
+					c.(*echoUtil.CustomContext).SetDynamicUser(user)
+					return next(c)
+				}
+
+				log.Logger.API.Error("authMiddleware: getTokenInfo: fail cast to *dynamic.User")
+			}
+
+			userID, expireTimestamp, err := a.getTokenInfo(authToken)
 			if err != nil {
 				return err
 			}
@@ -180,6 +172,12 @@ func (a *AuthMiddleware) LoadUser() echo.MiddlewareFunc {
 			}
 
 			c.(*echoUtil.CustomContext).SetDynamicUser(user)
+			// use ttl not greater than tokenCacheDefaultTTL
+			ttl := time.Duration(int64(expireTimestamp)-time.Now().Unix()) * time.Second
+			if ttl > tokenCacheDefaultTTL {
+				ttl = tokenCacheDefaultTTL
+			}
+			a.userCache.Set(authToken, user, ttl)
 
 			return next(c)
 		}

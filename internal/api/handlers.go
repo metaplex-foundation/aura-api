@@ -1,22 +1,38 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 
+	"github.com/go-pg/pg/v10"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
+	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
-// ShowUser godoc
+const (
+	notDeletedAPIKeysParam = "not_deleted"
+	tokenParam             = "token"
+)
+
+var (
+	ErrAPIKeyNotFound          = "api key not found"
+	ErrApiKeyNameAlreadyExists = "api key name already exists"
+	ErrUserNotFound            = "user not found"
+)
+
+// getUserHandler godoc
 //
 //	@Summary		Get user info
 //	@Description	Return object with user info
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	UserInfo
+//	@Success		200	{object}	postgres.User
 //	@Failure		400	{object}	error
 //	@Failure		401	{object}	error
 //	@Failure		500	{object}	error
@@ -24,11 +40,259 @@ import (
 //	@Router			/user [get]
 func (a *api) getUserHandler(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
-	if user == nil {
+	if user == nil || user.ID == "" {
 		log.Logger.API.Errorf("getUserHandler: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("getUserHandler: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
 
-	// TODO
-	return c.JSON(http.StatusOK, user)
+	return c.JSON(http.StatusOK, u)
+}
+
+// createAPIKeyHandler godoc
+//
+//	@Summary		Create api key
+//	@Description	Create api key
+//	@Tags			api key
+//	@Accept			json
+//	@Produce		json
+//	@Param			request_body	body		CreateAPIKeyRequestParams	true	"API key creation request"
+//	@Success		201				{null}		"Api key was created successfully"
+//	@Failure		400				{object}	error
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/keys [post]
+func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
+	var params CreateAPIKeyRequestParams
+	if err = c.Bind(&params); err != nil {
+		return err
+	}
+	if err = params.Validate(a.availableNetworks); err != nil {
+		return err
+	}
+
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("createAPIKeyHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("createAPIKeyHandler: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	networkIDs := make([]int64, 0, len(params.Networks))
+	for _, network := range params.Networks {
+		nID, ok := a.availableNetworks[network]
+		if !ok {
+			log.Logger.API.Errorf("createAPIKeyHandler: invalid network: %v", network)
+			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+		}
+		networkIDs = append(networkIDs, nID)
+	}
+	err = a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, params.Name, networkIDs)
+	if err != nil {
+		if postgres.IsErrAPIKeysLimitReached(err) {
+			return echo.NewHTTPError(http.StatusBadRequest, postgres.APIKeysLimitReachedErrorText)
+		}
+		if postgres.IsErrViolateConstraint(err) {
+			return echo.NewHTTPError(http.StatusBadRequest, ErrApiKeyNameAlreadyExists)
+		}
+		log.Logger.API.Errorf("createAPIKeyHandler: CreateAPIKey: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusCreated)
+}
+
+// apiKeyHandler godoc
+//
+//	@Summary		Get api key by token
+//	@Description	Get api key by token
+//	@Tags			api key
+//	@Accept			json
+//	@Produce		json
+//	@Param			token	path		string	true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Success		200		{object}	postgres.APIKeyWithSupportedNetworks
+//	@Failure		400		{object}	error
+//	@Failure		401		{object}	error
+//	@Failure		500		{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/keys/{token} [get]
+func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
+	projectToken, err := uuid.Parse(c.Param(tokenParam))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+	}
+
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("apiKeyHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	apiKey, err := a.pgStorage.GetAPIKeyByTokenAndUserDynamicID(c.Request().Context(), projectToken, user.ID)
+	if errors.Is(err, pg.ErrNoRows) {
+		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
+	} else if err != nil {
+		log.Logger.API.Errorf("apiKeyHandler: GetAPIKeyByTokenAndUserDynamicID: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, apiKey)
+}
+
+// apiKeysHandler godoc
+//
+//	@Summary		Get api keys for user
+//	@Description	Get api keys for user
+//	@Tags			api key
+//	@Accept			json
+//	@Produce		json
+//	@Param			not_deleted	query		bool	false	"Not deleted api keys"
+//	@Success		200			{array}		postgres.APIKeyWithSupportedNetworks
+//	@Failure		400			{object}	error
+//	@Failure		401			{object}	error
+//	@Failure		500			{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/keys [get]
+func (a *api) apiKeysHandler(c echo.Context) (err error) {
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("apiKeysHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("apiKeysHandler: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	var notDeleted *bool
+	if notDeletedAPIKeysString := c.QueryParam(notDeletedAPIKeysParam); notDeletedAPIKeysString != "" {
+		v, err := strconv.ParseBool(notDeletedAPIKeysString)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, notDeletedAPIKeysParam)
+		}
+		notDeleted = &v
+	}
+
+	apiKeys, err := a.pgStorage.GetAPIKeysByUser(c.Request().Context(), u.ID, notDeleted)
+	if err != nil {
+		log.Logger.API.Errorf("apiKeysHandler: GetAPIKeysByUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, apiKeys)
+}
+
+// updateAPIKeyHandler godoc
+//
+//	@Summary		Update api key
+//	@Description	Update api key
+//	@Tags			api key
+//	@Accept			json
+//	@Produce		json
+//	@Param			token			path		string						true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Param			request_body	body		UpdateAPIKeyRequestParams	true	"API key update request"
+//	@Success		200				{null}		"Api key was updated successfully"
+//	@Failure		400				{object}	error
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/keys/{token} [patch]
+func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
+	var params UpdateAPIKeyRequestParams
+	if err = c.Bind(&params); err != nil {
+		return err
+	}
+	if err = params.Validate(a.availableNetworks); err != nil {
+		return err
+	}
+
+	apiKeyToken, err := uuid.Parse(c.Param(tokenParam))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+	}
+
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("updateAPIKeyHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	networkIDs := make([]int64, 0, len(params.Networks))
+	for _, network := range params.Networks {
+		nID, ok := a.availableNetworks[network]
+		if !ok {
+			log.Logger.API.Errorf("updateAPIKeyHandler: invalid network: %v", network)
+			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+		}
+		networkIDs = append(networkIDs, nID)
+	}
+	err = a.pgStorage.UpdateAPIKey(c.Request().Context(), apiKeyToken, user.ID, params.Name, networkIDs)
+	if errors.Is(err, pg.ErrNoRows) {
+		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
+	}
+	if postgres.IsErrViolateConstraint(err) {
+		return echo.NewHTTPError(http.StatusBadRequest, ErrApiKeyNameAlreadyExists)
+	}
+	if err != nil {
+		log.Logger.API.Errorf("updateAPIKeyHandler: UpdateAPIKey: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// deleteAPIKeyHandler godoc
+//
+//	@Summary		Delete api key
+//	@Description	Delete api key
+//	@Tags			api key
+//	@Accept			json
+//	@Produce		json
+//	@Param			token	path		string	true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Success		200		{null}		"Api key was deleted successfully"
+//	@Failure		400		{object}	error
+//	@Failure		401		{object}	error
+//	@Failure		500		{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/keys/{token} [delete]
+func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
+	apiKeyToken, err := uuid.Parse(c.Param(tokenParam))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+	}
+
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("deleteAPIKeyHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	err = a.pgStorage.DeleteAPIKey(c.Request().Context(), apiKeyToken, user.ID)
+	if errors.Is(err, pg.ErrNoRows) {
+		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
+	}
+	if err != nil {
+		log.Logger.API.Errorf("deleteAPIKeyHandler: DeleteAPIKey: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
 }
