@@ -148,15 +148,12 @@ func initAPIServer() *echo.Echo {
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
-// @server						url=https://dev.example.com description=Development Server
-// @server						url=https://staging.example.com description=Staging Server
-// @server						url=https://prod.example.com description=Production Server
 // @accept						json
 //
 // @securityDefinitions.apikey	ApiKeyAuth
 // @in							header
 // @name						Authorization
-// @description				"\"Bearer \" your JWT
+// @description				Bearer JWT
 func (a *api) initAPIDocsHandlers() {
 	// api docs
 	a.routerAPIDoc.GET("*", echoSwagger.WrapHandler)

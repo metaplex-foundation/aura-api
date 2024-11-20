@@ -392,7 +392,7 @@
     },
     "securityDefinitions": {
         "ApiKeyAuth": {
-            "description": "\"\\\"Bearer \\\" your JWT",
+            "description": "Bearer JWT",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
