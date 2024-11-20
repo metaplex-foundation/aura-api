@@ -259,7 +259,7 @@ paths:
       - users
 securityDefinitions:
   ApiKeyAuth:
-    description: '"\"Bearer \" your JWT'
+    description: Bearer JWT
     in: header
     name: Authorization
     type: apiKey
