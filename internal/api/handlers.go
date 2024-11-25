@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
@@ -150,6 +151,9 @@ func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
 		log.Logger.API.Errorf("apiKeyHandler: GetAPIKeyByTokenAndUserDynamicID: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	lastUsed := time.Now()
+	apiKey.LastUsed = &lastUsed
+	apiKey.TotalRequests = 1000
 
 	return c.JSON(http.StatusOK, apiKey)
 }
@@ -196,6 +200,12 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 	if err != nil {
 		log.Logger.API.Errorf("apiKeysHandler: GetAPIKeysByUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	// TODO: remove
+	for i := range apiKeys {
+		lastUsed := time.Now()
+		apiKeys[i].LastUsed = &lastUsed
+		apiKeys[i].TotalRequests = 1000
 	}
 
 	return c.JSON(http.StatusOK, apiKeys)
