@@ -46,6 +46,8 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	emailSender email.Sender
 
 	grpcServer *grpc.Server
+
+	availableNetworks map[string]int64
 }
 
 const (
@@ -84,7 +86,10 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return a, fmt.Errorf("NewSubscriptionManager: %s", err)
 	}
-
+	availableNetworks, err := pgStorage.GetAvailableNetworks(ctx)
+	if err != nil {
+		return a, fmt.Errorf("GetAvailableNetworks: %s", err)
+	}
 	a = &api{
 		conf:         cfg.API,
 		router:       initAPIServer(),
@@ -99,7 +104,8 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 
 		grpcServer: g,
 
-		emailSender: emailSender,
+		emailSender:       emailSender,
+		availableNetworks: availableNetworks,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -138,7 +144,7 @@ func initAPIServer() *echo.Echo {
 }
 
 // @title						Swagger Aura
-// @version					1.0.17
+// @version					0.0.1
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
@@ -146,8 +152,8 @@ func initAPIServer() *echo.Echo {
 //
 // @securityDefinitions.apikey	ApiKeyAuth
 // @in							header
-// @name						"Authentication"
-// @description				"Type \"Bearer \" and then your API Token
+// @name						Authorization
+// @description				Bearer JWT
 func (a *api) initAPIDocsHandlers() {
 	// api docs
 	a.routerAPIDoc.GET("*", echoSwagger.WrapHandler)
@@ -160,6 +166,13 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)
 	protectedGroup.GET("/user", a.getUserHandler)
+	// API keys
+	apiKeysGroup := protectedGroup.Group("/keys")
+	apiKeysGroup.GET("", a.apiKeysHandler)
+	apiKeysGroup.GET("/:token", a.apiKeyHandler)
+	apiKeysGroup.POST("", a.createAPIKeyHandler)
+	apiKeysGroup.PATCH("/:token", a.updateAPIKeyHandler)
+	apiKeysGroup.DELETE("/:token", a.deleteAPIKeyHandler)
 }
 
 func (a *api) Run() (err error) {

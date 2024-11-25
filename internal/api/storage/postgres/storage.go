@@ -20,10 +20,13 @@ type Storage struct {
 }
 
 var (
-	ErrNotTx            = errors.New("not tx")
-	ErrEmptyProviderID  = errors.New("empty providerID")
-	ErrEmptyProjectUUID = errors.New("empty projectUUID")
-	ErrEmptyID          = errors.New("empty id")
+	ErrNotTx          = errors.New("not tx")
+	ErrEmptyDynamicID = errors.New("empty dynamicID")
+	ErrEmptyUserID    = errors.New("empty userID")
+)
+
+const (
+	APIKeysLimitReachedErrorText = "API keys limit reached"
 )
 
 func New(ctx context.Context, cfg configtypes.PostgresConfig) (s Storage, err error) { //nolint:gocritic
@@ -117,4 +120,9 @@ func (s *Storage) Commit(ctx context.Context) error {
 func IsErrViolateConstraint(err error) bool {
 	var pgErr pg.Error
 	return errors.As(err, &pgErr) && pgErr.IntegrityViolation()
+}
+
+func IsErrAPIKeysLimitReached(err error) bool {
+	var pgErr pg.Error
+	return errors.As(err, &pgErr) && pgErr.Field(77) == APIKeysLimitReachedErrorText //nolint:revive
 }
