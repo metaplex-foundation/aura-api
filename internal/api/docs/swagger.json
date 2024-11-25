@@ -358,6 +358,9 @@
                 "deleted_at": {
                     "type": "string"
                 },
+                "last_used": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -369,6 +372,9 @@
                 },
                 "token": {
                     "type": "string"
+                },
+                "total_requests": {
+                    "type": "integer"
                 }
             }
         },

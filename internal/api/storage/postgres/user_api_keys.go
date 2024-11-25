@@ -12,12 +12,14 @@ import (
 
 type (
 	APIKey struct {
-		ID        int64      `pg:"uak_id" json:"-"`
-		UserID    int64      `pg:"usr_id" json:"-"`
-		Name      string     `pg:"uak_name" json:"name"`
-		Token     uuid.UUID  `pg:"uak_token" json:"token"`
-		CreatedAt time.Time  `pg:"uak_created_at" json:"created_at"`
-		DeletedAt *time.Time `pg:"uak_deleted_at" json:"deleted_at"`
+		ID            int64      `pg:"uak_id" json:"-"`
+		UserID        int64      `pg:"usr_id" json:"-"`
+		TotalRequests int64      `pg:"-" json:"total_requests"`
+		Name          string     `pg:"uak_name" json:"name"`
+		Token         uuid.UUID  `pg:"uak_token" json:"token"`
+		CreatedAt     time.Time  `pg:"uak_created_at" json:"created_at"`
+		DeletedAt     *time.Time `pg:"uak_deleted_at" json:"deleted_at"`
+		LastUsed      *time.Time `pg:"-" json:"last_used"`
 	}
 	APIKeyWithSupportedNetworks struct {
 		APIKey

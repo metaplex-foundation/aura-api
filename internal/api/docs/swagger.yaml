@@ -33,6 +33,8 @@ definitions:
         type: string
       deleted_at:
         type: string
+      last_used:
+        type: string
       name:
         type: string
       supported_networks:
@@ -41,6 +43,8 @@ definitions:
         type: array
       token:
         type: string
+      total_requests:
+        type: integer
     type: object
   postgres.User:
     properties:
