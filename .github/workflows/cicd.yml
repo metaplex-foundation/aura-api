@@ -60,7 +60,7 @@ jobs:
     - name: Update Docker Compose Image Tag
       uses: mikefarah/yq@master
       with:
-        cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
+        cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
 
     - name: Commit and Push Changes
       run: |
