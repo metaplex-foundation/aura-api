@@ -57,6 +57,7 @@ definitions:
       mplx_balance:
         type: integer
     type: object
+host: aura-api-dev.mtgrd-das.app
 info:
   contact: {}
   description: Swagger API server for Aura API.
@@ -261,6 +262,8 @@ paths:
       summary: Get user info
       tags:
       - users
+schemes:
+- https
 securityDefinitions:
   ApiKeyAuth:
     description: Bearer JWT

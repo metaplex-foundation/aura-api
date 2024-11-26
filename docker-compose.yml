@@ -8,9 +8,10 @@ services:
     ports:
       - "${API_PORT}:${API_PORT}"
       - "${API_SWAGGER_PORT}:${API_SWAGGER_PORT}"
+    volumes:
+      - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
     env_file:
       - .env
-    entrypoint: "api"
     command:
       - -log=debug
     logging:

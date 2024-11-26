@@ -2,6 +2,9 @@
     "consumes": [
         "application/json"
     ],
+    "schemes": [
+        "https"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "Swagger API server for Aura API.",
@@ -10,6 +13,7 @@
         "contact": {},
         "version": "0.0.1"
     },
+    "host": "aura-api-dev.mtgrd-das.app",
     "basePath": "/",
     "paths": {
         "/keys": {
