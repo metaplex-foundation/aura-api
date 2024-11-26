@@ -1,9 +1,8 @@
 version: "3.1"
-
 services:
   aura-api:
     container_name: aura-api
-    image: aura-go:latest
+    image: ghcr.io/adm-metaex/aura-api:v0.0.1-ccf7668
     restart: always
     tty: true
     ports:
