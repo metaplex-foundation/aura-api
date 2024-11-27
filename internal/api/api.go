@@ -148,6 +148,8 @@ func initAPIServer() *echo.Echo {
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
+// @Host						aura-api-dev.mtgrd-das.app
+// @schemes					https
 // @accept						json
 //
 // @securityDefinitions.apikey	ApiKeyAuth
