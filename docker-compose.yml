@@ -2,7 +2,7 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api/aura-api:v0.0.1-126df73
+    image: ghcr.io/adm-metaex/aura-api/aura-api:v0.0.1-7dcb6c2
     restart: always
     tty: true
     ports:
