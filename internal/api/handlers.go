@@ -34,8 +34,8 @@ var (
 //	@Summary		Get list of supported networks
 //	@Description	Return list of supported networks
 //	@Tags			networks
-//	@Produce		array
-//	@Success		200	{object}	[]string
+//	@Produce		json
+//	@Success		200	{array}		string
 //	@Failure		400	{object}	error
 //	@Failure		401	{object}	error
 //	@Failure		500	{object}	error
@@ -56,7 +56,7 @@ func (a *api) getSupportedNetworksHandler(c echo.Context) (err error) {
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	postgres.User
+//	@Success		200	{object}	User
 //	@Failure		400	{object}	error
 //	@Failure		401	{object}	error
 //	@Failure		500	{object}	error
@@ -90,7 +90,7 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request_body	body		CreateAPIKeyRequestParams	true	"API key creation request"
-//	@Success		201				{null}		"Api key was created successfully"
+//	@Success		201				{object}	postgres.APIKeyWithSupportedNetworks
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
@@ -193,11 +193,11 @@ func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
 //	@Tags			api key
 //	@Accept			json
 //	@Produce		json
-//	@Param			not_deleted	query		bool	false	"Not deleted api keys"
-//	@Success		200			{array}		postgres.APIKeyWithSupportedNetworks
-//	@Failure		400			{object}	error
-//	@Failure		401			{object}	error
-//	@Failure		500			{object}	error
+//	@Param			show_deleted	query		bool	false	"Define if we need to show deleted keys. If the parameter is not present - show only living keys. If show_deleted == true only deleted keys will be returned. If show_deleted == false all keys (living and deleted) will be returned"
+//	@Success		200				{array}		postgres.APIKeyWithSupportedNetworks
+//	@Failure		400				{object}	error
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
 //	@Security		ApiKeyAuth
 //	@Router			/keys [get]
 func (a *api) apiKeysHandler(c echo.Context) (err error) {
@@ -248,7 +248,7 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 //	@Produce		json
 //	@Param			token			path		string						true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
 //	@Param			request_body	body		UpdateAPIKeyRequestParams	true	"API key update request"
-//	@Success		200				{null}		"Api key was updated successfully"
+//	@Success		200				{object}	postgres.APIKeyWithSupportedNetworks
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
@@ -308,7 +308,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			token	path		string	true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
-//	@Success		200		{null}		"Api key was deleted successfully"
+//	@Success		200		{string}	"Api key was deleted successfully. Return empty string"
 //	@Failure		400		{object}	error
 //	@Failure		401		{object}	error
 //	@Failure		500		{object}	error

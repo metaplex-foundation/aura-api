@@ -3,6 +3,7 @@
         "application/json"
     ],
     "schemes": [
+        "http",
         "https"
     ],
     "swagger": "2.0",
@@ -37,8 +38,8 @@
                 "parameters": [
                     {
                         "type": "boolean",
-                        "description": "Not deleted api keys",
-                        "name": "not_deleted",
+                        "description": "Define if we need to show deleted keys. If the parameter is not present - show only living keys. If show_deleted == true only deleted keys will be returned. If show_deleted == false all keys (living and deleted) will be returned",
+                        "name": "show_deleted",
                         "in": "query"
                     }
                 ],
@@ -96,9 +97,9 @@
                 ],
                 "responses": {
                     "201": {
-                        "description": "Api key was created successfully",
+                        "description": "Created",
                         "schema": {
-                            "type": "null"
+                            "$ref": "#/definitions/postgres.APIKeyWithSupportedNetworks"
                         }
                     },
                     "400": {
@@ -196,9 +197,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Api key was deleted successfully",
+                        "description": "Api key was deleted successfully. Return empty string",
                         "schema": {
-                            "type": "null"
+                            "type": "string"
                         }
                     },
                     "400": {
@@ -254,9 +255,44 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Api key was updated successfully",
+                        "description": "OK",
                         "schema": {
-                            "type": "null"
+                            "$ref": "#/definitions/postgres.APIKeyWithSupportedNetworks"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/networks": {
+            "get": {
+                "description": "Return list of supported networks",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "networks"
+                ],
+                "summary": "Get list of supported networks",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     },
                     "400": {
@@ -296,7 +332,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/postgres.User"
+                            "$ref": "#/definitions/api.User"
                         }
                     },
                     "400": {
@@ -353,6 +389,23 @@
                 }
             }
         },
+        "api.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "dynamic_id": {
+                    "type": "string"
+                },
+                "mplx_balance": {
+                    "type": "integer"
+                },
+                "subscription": {
+                    "$ref": "#/definitions/postgres.Subscription"
+                }
+            }
+        },
         "postgres.APIKeyWithSupportedNetworks": {
             "type": "object",
             "properties": {
@@ -382,19 +435,19 @@
                 }
             }
         },
-        "postgres.User": {
+        "postgres.Subscription": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "dynamic_id": {
-                    "type": "string"
-                },
-                "id": {
+                "minimum_balance": {
                     "type": "integer"
                 },
-                "mplx_balance": {
+                "name": {
+                    "type": "string"
+                },
+                "requests_per_second": {
+                    "type": "integer"
+                },
+                "token_limit": {
                     "type": "integer"
                 }
             }
