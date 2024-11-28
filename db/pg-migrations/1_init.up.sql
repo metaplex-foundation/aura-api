@@ -54,7 +54,9 @@ create table user_api_keys
             on update cascade on delete restrict,
     uak_name  varchar(128)          not null,
     uak_token uuid                  not null default gen_random_uuid(),
+    uak_total_requests bigint       not null default 0,
     uak_created_at timestamp default now()      not null,
+    uak_last_used_at timestamp,
     uak_deleted_at timestamp
 );
 CREATE INDEX user_api_usr_id_uak_deleted_at_index
@@ -62,7 +64,7 @@ CREATE INDEX user_api_usr_id_uak_deleted_at_index
 CREATE UNIQUE INDEX user_api_usr_uak_token_index
     ON user_api_keys (uak_token);
 CREATE INDEX user_api_uak_created_at_index
-    ON user_api_keys (uak_created_at DESC)
+    ON user_api_keys (uak_created_at DESC);
 CREATE UNIQUE INDEX user_api_keys_usr_id_uak_name_unique_index
     ON user_api_keys (usr_id, uak_name)
     WHERE uak_deleted_at IS NULL;

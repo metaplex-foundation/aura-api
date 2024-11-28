@@ -3,8 +3,11 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 )
 
 type (
@@ -15,6 +18,15 @@ type (
 	UpdateAPIKeyRequestParams struct {
 		Name     *string  `json:"name" extensions:"x-nullable"`
 		Networks []string `json:"networks" enums:"aura, solana"`
+	}
+)
+
+type (
+	User struct {
+		MplxBalance  int64                 `pg:"usr_mplx_balance" json:"mplx_balance"`
+		DynamicID    string                `pg:"usr_dynamic_id" json:"dynamic_id"`
+		CreatedAt    time.Time             `pg:"usr_created_at" json:"created_at"`
+		Subscription postgres.Subscription `json:"subscription"`
 	}
 )
 
@@ -45,4 +57,11 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	}
 
 	return nil
+}
+
+func (u *User) FromDBModel(user *postgres.UserWithSubscription) {
+	u.DynamicID = user.DynamicID
+	u.MplxBalance = user.MplxBalance
+	u.CreatedAt = user.User.CreatedAt
+	u.Subscription = user.Subscription
 }

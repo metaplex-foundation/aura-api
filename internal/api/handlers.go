@@ -76,8 +76,10 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getUserHandler: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	var userModel User
+	userModel.FromDBModel(&u)
 
-	return c.JSON(http.StatusOK, u)
+	return c.JSON(http.StatusOK, userModel)
 }
 
 // createAPIKeyHandler godoc
@@ -126,7 +128,7 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 		}
 		networkIDs = append(networkIDs, nID)
 	}
-	err = a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, params.Name, networkIDs)
+	apiKey, err := a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, params.Name, networkIDs)
 	if err != nil {
 		if postgres.IsErrAPIKeysLimitReached(err) {
 			return echo.NewHTTPError(http.StatusBadRequest, postgres.APIKeysLimitReachedErrorText)
@@ -137,8 +139,11 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("createAPIKeyHandler: CreateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	lastUsed := time.Now()
+	apiKey.LastUsed = &lastUsed
+	apiKey.TotalRequests = 1000
 
-	return c.NoContent(http.StatusCreated)
+	return c.JSON(http.StatusCreated, apiKey)
 }
 
 // apiKeyHandler godoc
@@ -167,7 +172,7 @@ func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	apiKey, err := a.pgStorage.GetAPIKeyByTokenAndUserDynamicID(c.Request().Context(), apiKeyToken, user.ID)
+	apiKey, err := a.pgStorage.GetAPIKeyByTokenAndUserDynamicID(c.Request().Context(), apiKeyToken)
 	if errors.Is(err, pg.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
 	} else if err != nil {
@@ -277,7 +282,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		}
 		networkIDs = append(networkIDs, nID)
 	}
-	err = a.pgStorage.UpdateAPIKey(c.Request().Context(), apiKeyToken, user.ID, params.Name, networkIDs)
+	apiKey, err := a.pgStorage.UpdateAPIKey(c.Request().Context(), apiKeyToken, params.Name, networkIDs)
 	if errors.Is(err, pg.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
 	}
@@ -288,8 +293,11 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateAPIKeyHandler: UpdateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	lastUsed := time.Now()
+	apiKey.LastUsed = &lastUsed
+	apiKey.TotalRequests = 1000
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, apiKey)
 }
 
 // deleteAPIKeyHandler godoc
