@@ -12,7 +12,7 @@ create table subscriptions
 create unique index subscriptions_sbs_name_uindex
     on subscriptions (sbs_name);
 INSERT INTO subscriptions (sbs_name, sbs_request_per_second, sbs_minimum_balance, sbs_tokens_limit)
-VALUES ('free', 2, 0, 2);
+VALUES ('Free', 2, 0, 2);
 
 create table users
 (
@@ -28,6 +28,7 @@ create table users
 );
 create unique index users_usr_dynamic_id_uindex
     on users (usr_dynamic_id);
+CREATE INDEX users_sbs_id_index ON users(sbs_id);
 
 create table networks
 (
@@ -40,7 +41,7 @@ create unique index networks_ntw_name_uindex
     on networks (ntw_name);
 
 INSERT INTO networks (ntw_name)
-VALUES ('solana'), ('aura');
+VALUES ('Solana'), ('Aura');
 
 create table user_api_keys
 (
@@ -58,8 +59,10 @@ create table user_api_keys
 );
 CREATE INDEX user_api_usr_id_uak_deleted_at_index
     ON user_api_keys (usr_id, uak_deleted_at);
-CREATE INDEX user_api_usr_uak_token_index
+CREATE UNIQUE INDEX user_api_usr_uak_token_index
     ON user_api_keys (uak_token);
+CREATE INDEX user_api_uak_created_at_index
+    ON user_api_keys (uak_created_at DESC)
 CREATE UNIQUE INDEX user_api_keys_usr_id_uak_name_unique_index
     ON user_api_keys (usr_id, uak_name)
     WHERE uak_deleted_at IS NULL;
@@ -74,6 +77,7 @@ create table user_api_keys_networks
             on update cascade on delete restrict,
     primary key (uak_id, ntw_id)
 );
+CREATE INDEX user_api_keys_networks_ntw_id_index ON user_api_keys_networks(ntw_id);
 
 CREATE OR REPLACE FUNCTION check_api_key_limit()
 RETURNS trigger AS $$

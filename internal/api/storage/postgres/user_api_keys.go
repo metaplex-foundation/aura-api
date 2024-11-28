@@ -64,7 +64,7 @@ func (s *Storage) CreateAPIKey(ctx context.Context, userID int64, name string, n
 	return nil
 }
 
-func (s *Storage) GetAPIKeysByUser(ctx context.Context, userID int64, notDeleted *bool) (apiKeys []APIKeyWithSupportedNetworks, err error) {
+func (s *Storage) GetAPIKeysByUser(ctx context.Context, userID int64, showDeleted *bool) (apiKeys []APIKeyWithSupportedNetworks, err error) {
 	if userID == 0 {
 		return nil, ErrEmptyUserID
 	}
@@ -74,13 +74,12 @@ func (s *Storage) GetAPIKeysByUser(ctx context.Context, userID int64, notDeleted
 		LeftJoin("user_api_keys_networks USING(uak_id)").
 		LeftJoin("networks USING(ntw_id)").
 		Where("usr_id = ?", userID).
-		GroupBy("uak_id")
-	if notDeleted != nil {
-		if *notDeleted {
-			q = q.Where("uak_deleted_at IS NULL")
-		} else {
-			q = q.Where("uak_deleted_at IS NOT NULL")
-		}
+		GroupBy("uak_id").
+		OrderBy("uak_created_at DESC")
+	if showDeleted != nil && *showDeleted {
+		q = q.Where("uak_deleted_at IS NOT NULL")
+	} else if showDeleted == nil {
+		q = q.Where("uak_deleted_at IS NULL")
 	}
 
 	query, args, err := q.ToSql()

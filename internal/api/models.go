@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -19,14 +20,14 @@ type (
 
 func (p *CreateAPIKeyRequestParams) Validate(availableNetworks map[string]int64) error {
 	if p.Name == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "name")
+		return echo.NewHTTPError(http.StatusBadRequest, "Empty API key name")
 	}
 	if len(p.Networks) == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "networks")
+		return echo.NewHTTPError(http.StatusBadRequest, "Neither network selected")
 	}
 	for _, network := range p.Networks {
 		if _, ok := availableNetworks[network]; !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", network))
 		}
 	}
 
@@ -35,11 +36,11 @@ func (p *CreateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 
 func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64) error {
 	if p.Name != nil && *p.Name == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "name")
+		return echo.NewHTTPError(http.StatusBadRequest, "Empty API key name")
 	}
 	for _, network := range p.Networks {
 		if _, ok := availableNetworks[network]; !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", network))
 		}
 	}
 
