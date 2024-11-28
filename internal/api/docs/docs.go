@@ -40,13 +40,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "boolean",
-<<<<<<< HEAD
-                        "description": "Not deleted api keys",
-                        "name": "not_deleted",
-=======
                         "description": "Define if we need to show deleted keys. If the parameter is not present - show only living keys. If show_deleted == true only deleted keys will be returned. If show_deleted == false all keys (living and deleted) will be returned",
                         "name": "show_deleted",
->>>>>>> main
                         "in": "query"
                     }
                 ],

@@ -16,8 +16,9 @@ import (
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
+const metaplexTokenDecimals = 6
+
 const (
-	notDeletedAPIKeysParam = "not_deleted"
 	showDeletedAPIKeysParam = "show_deleted"
 	tokenParam              = "token"
 )
@@ -50,6 +51,7 @@ func (a *api) getSupportedNetworksHandler(c echo.Context) (err error) {
 
 // getUserHandler godoc
 //
+//	@Summary		Get user info
 //	@Description	Return object with user info
 //	@Tags			users
 //	@Accept			json

@@ -3,10 +3,7 @@
         "application/json"
     ],
     "schemes": [
-<<<<<<< HEAD
-=======
         "http",
->>>>>>> main
         "https"
     ],
     "swagger": "2.0",
@@ -41,13 +38,8 @@
                 "parameters": [
                     {
                         "type": "boolean",
-<<<<<<< HEAD
-                        "description": "Not deleted api keys",
-                        "name": "not_deleted",
-=======
                         "description": "Define if we need to show deleted keys. If the parameter is not present - show only living keys. If show_deleted == true only deleted keys will be returned. If show_deleted == false all keys (living and deleted) will be returned",
                         "name": "show_deleted",
->>>>>>> main
                         "in": "query"
                     }
                 ],
@@ -105,15 +97,9 @@
                 ],
                 "responses": {
                     "201": {
-<<<<<<< HEAD
-                        "description": "Api key was created successfully",
-                        "schema": {
-                            "type": "null"
-=======
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/postgres.APIKeyWithSupportedNetworks"
->>>>>>> main
                         }
                     },
                     "400": {
@@ -211,15 +197,9 @@
                 ],
                 "responses": {
                     "200": {
-<<<<<<< HEAD
-                        "description": "Api key was deleted successfully",
-                        "schema": {
-                            "type": "null"
-=======
                         "description": "Api key was deleted successfully. Return empty string",
                         "schema": {
                             "type": "string"
->>>>>>> main
                         }
                     },
                     "400": {
@@ -275,11 +255,6 @@
                 ],
                 "responses": {
                     "200": {
-<<<<<<< HEAD
-                        "description": "Api key was updated successfully",
-                        "schema": {
-                            "type": "null"
-=======
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/postgres.APIKeyWithSupportedNetworks"
@@ -318,7 +293,6 @@
                             "items": {
                                 "type": "string"
                             }
->>>>>>> main
                         }
                     },
                     "400": {
@@ -358,11 +332,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-<<<<<<< HEAD
-                            "$ref": "#/definitions/postgres.User"
-=======
                             "$ref": "#/definitions/api.User"
->>>>>>> main
                         }
                     },
                     "400": {
@@ -419,8 +389,6 @@
                 }
             }
         },
-<<<<<<< HEAD
-=======
         "api.User": {
             "type": "object",
             "properties": {
@@ -438,7 +406,6 @@
                 }
             }
         },
->>>>>>> main
         "postgres.APIKeyWithSupportedNetworks": {
             "type": "object",
             "properties": {
@@ -468,21 +435,6 @@
                 }
             }
         },
-<<<<<<< HEAD
-        "postgres.User": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "dynamic_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "mplx_balance": {
-=======
         "postgres.Subscription": {
             "type": "object",
             "properties": {
@@ -496,7 +448,6 @@
                     "type": "integer"
                 },
                 "token_limit": {
->>>>>>> main
                     "type": "integer"
                 }
             }

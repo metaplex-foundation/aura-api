@@ -27,8 +27,6 @@ definitions:
           type: string
         type: array
     type: object
-<<<<<<< HEAD
-=======
   api.User:
     properties:
       created_at:
@@ -40,7 +38,6 @@ definitions:
       subscription:
         $ref: '#/definitions/postgres.Subscription'
     type: object
->>>>>>> main
   postgres.APIKeyWithSupportedNetworks:
     properties:
       created_at:
@@ -60,17 +57,6 @@ definitions:
       total_requests:
         type: integer
     type: object
-<<<<<<< HEAD
-  postgres.User:
-    properties:
-      created_at:
-        type: string
-      dynamic_id:
-        type: string
-      id:
-        type: integer
-      mplx_balance:
-=======
   postgres.Subscription:
     properties:
       minimum_balance:
@@ -80,7 +66,6 @@ definitions:
       requests_per_second:
         type: integer
       token_limit:
->>>>>>> main
         type: integer
     type: object
 host: aura-api-dev.mtgrd-das.app
@@ -97,18 +82,12 @@ paths:
       - application/json
       description: Get api keys for user
       parameters:
-<<<<<<< HEAD
-      - description: Not deleted api keys
-        in: query
-        name: not_deleted
-=======
       - description: Define if we need to show deleted keys. If the parameter is not
           present - show only living keys. If show_deleted == true only deleted keys
           will be returned. If show_deleted == false all keys (living and deleted)
           will be returned
         in: query
         name: show_deleted
->>>>>>> main
         type: boolean
       produces:
       - application/json
@@ -148,15 +127,9 @@ paths:
       - application/json
       responses:
         "201":
-<<<<<<< HEAD
-          description: Api key was created successfully
-          schema:
-            type: "null"
-=======
           description: Created
           schema:
             $ref: '#/definitions/postgres.APIKeyWithSupportedNetworks'
->>>>>>> main
         "400":
           description: Bad Request
           schema: {}
@@ -188,15 +161,9 @@ paths:
       - application/json
       responses:
         "200":
-<<<<<<< HEAD
-          description: Api key was deleted successfully
-          schema:
-            type: "null"
-=======
           description: Api key was deleted successfully. Return empty string
           schema:
             type: string
->>>>>>> main
         "400":
           description: Bad Request
           schema: {}
@@ -266,15 +233,9 @@ paths:
       - application/json
       responses:
         "200":
-<<<<<<< HEAD
-          description: Api key was updated successfully
-          schema:
-            type: "null"
-=======
           description: OK
           schema:
             $ref: '#/definitions/postgres.APIKeyWithSupportedNetworks'
->>>>>>> main
         "400":
           description: Bad Request
           schema: {}
@@ -289,8 +250,6 @@ paths:
       summary: Update api key
       tags:
       - api key
-<<<<<<< HEAD
-=======
   /networks:
     get:
       description: Return list of supported networks
@@ -315,7 +274,6 @@ paths:
       summary: Get list of supported networks
       tags:
       - networks
->>>>>>> main
   /user:
     get:
       consumes:
@@ -327,11 +285,7 @@ paths:
         "200":
           description: OK
           schema:
-<<<<<<< HEAD
-            $ref: '#/definitions/postgres.User'
-=======
             $ref: '#/definitions/api.User'
->>>>>>> main
         "400":
           description: Bad Request
           schema: {}
@@ -347,10 +301,7 @@ paths:
       tags:
       - users
 schemes:
-<<<<<<< HEAD
-=======
 - http
->>>>>>> main
 - https
 securityDefinitions:
   ApiKeyAuth:
