@@ -164,6 +164,8 @@ func (a *api) initAPIDocsHandlers() {
 func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	log.Logger.API.Infof("initAPIHandlers")
 
+	// public
+	a.router.GET("/networks", a.getSupportedNetworksHandler)
 	// protected
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)

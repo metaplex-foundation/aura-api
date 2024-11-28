@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,16 +16,38 @@ import (
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
+const metaplexTokenDecimals = 6
+
 const (
-	notDeletedAPIKeysParam = "not_deleted"
-	tokenParam             = "token"
+	showDeletedAPIKeysParam = "show_deleted"
+	tokenParam              = "token"
 )
 
 var (
-	ErrAPIKeyNotFound          = "api key not found"
-	ErrApiKeyNameAlreadyExists = "api key name already exists"
-	ErrUserNotFound            = "user not found"
+	ErrAPIKeyNotFound          = "API key not found"
+	ErrApiKeyNameAlreadyExists = "API key name already exists"
+	ErrUserNotFound            = "User not found"
 )
+
+// getSupportedNetworksHandler godoc
+//
+//	@Summary		Get list of supported networks
+//	@Description	Return list of supported networks
+//	@Tags			networks
+//	@Produce		array
+//	@Success		200	{object}	[]string
+//	@Failure		400	{object}	error
+//	@Failure		401	{object}	error
+//	@Failure		500	{object}	error
+//	@Router			/networks [get]
+func (a *api) getSupportedNetworksHandler(c echo.Context) (err error) {
+	networks := make([]string, 0, len(a.availableNetworks))
+	for network := range a.availableNetworks {
+		networks = append(networks, network)
+	}
+
+	return c.JSON(http.StatusOK, networks)
+}
 
 // getUserHandler godoc
 //
@@ -53,8 +76,10 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getUserHandler: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	var userModel User
+	userModel.FromDBModel(&u)
 
-	return c.JSON(http.StatusOK, u)
+	return c.JSON(http.StatusOK, userModel)
 }
 
 // createAPIKeyHandler godoc
@@ -99,11 +124,11 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 		nID, ok := a.availableNetworks[network]
 		if !ok {
 			log.Logger.API.Errorf("createAPIKeyHandler: invalid network: %v", network)
-			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", network))
 		}
 		networkIDs = append(networkIDs, nID)
 	}
-	err = a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, params.Name, networkIDs)
+	apiKey, err := a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, params.Name, networkIDs)
 	if err != nil {
 		if postgres.IsErrAPIKeysLimitReached(err) {
 			return echo.NewHTTPError(http.StatusBadRequest, postgres.APIKeysLimitReachedErrorText)
@@ -114,8 +139,11 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("createAPIKeyHandler: CreateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	lastUsed := time.Now()
+	apiKey.LastUsed = &lastUsed
+	apiKey.TotalRequests = 1000
 
-	return c.NoContent(http.StatusCreated)
+	return c.JSON(http.StatusCreated, apiKey)
 }
 
 // apiKeyHandler godoc
@@ -133,9 +161,9 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 //	@Security		ApiKeyAuth
 //	@Router			/keys/{token} [get]
 func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
-	projectToken, err := uuid.Parse(c.Param(tokenParam))
+	apiKeyToken, err := uuid.Parse(c.Param(tokenParam))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid uuid for token parameter: %s", c.Param(tokenParam)))
 	}
 
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
@@ -144,7 +172,7 @@ func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	apiKey, err := a.pgStorage.GetAPIKeyByTokenAndUserDynamicID(c.Request().Context(), projectToken, user.ID)
+	apiKey, err := a.pgStorage.GetAPIKeyByTokenAndUserDynamicID(c.Request().Context(), apiKeyToken)
 	if errors.Is(err, pg.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
 	} else if err != nil {
@@ -187,16 +215,16 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	var notDeleted *bool
-	if notDeletedAPIKeysString := c.QueryParam(notDeletedAPIKeysParam); notDeletedAPIKeysString != "" {
-		v, err := strconv.ParseBool(notDeletedAPIKeysString)
+	var showDeleted *bool
+	if showDeletedAPIKeysString := c.QueryParam(showDeletedAPIKeysParam); showDeletedAPIKeysString != "" {
+		v, err := strconv.ParseBool(showDeletedAPIKeysString)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, notDeletedAPIKeysParam)
+			return echo.NewHTTPError(http.StatusBadRequest, showDeletedAPIKeysParam)
 		}
-		notDeleted = &v
+		showDeleted = &v
 	}
 
-	apiKeys, err := a.pgStorage.GetAPIKeysByUser(c.Request().Context(), u.ID, notDeleted)
+	apiKeys, err := a.pgStorage.GetAPIKeysByUser(c.Request().Context(), u.ID, showDeleted)
 	if err != nil {
 		log.Logger.API.Errorf("apiKeysHandler: GetAPIKeysByUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -237,7 +265,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 
 	apiKeyToken, err := uuid.Parse(c.Param(tokenParam))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid uuid for token parameter: %s", c.Param(tokenParam)))
 	}
 
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
@@ -250,11 +278,11 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		nID, ok := a.availableNetworks[network]
 		if !ok {
 			log.Logger.API.Errorf("updateAPIKeyHandler: invalid network: %v", network)
-			return echo.NewHTTPError(http.StatusBadRequest, "networks")
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", network))
 		}
 		networkIDs = append(networkIDs, nID)
 	}
-	err = a.pgStorage.UpdateAPIKey(c.Request().Context(), apiKeyToken, user.ID, params.Name, networkIDs)
+	apiKey, err := a.pgStorage.UpdateAPIKey(c.Request().Context(), apiKeyToken, params.Name, networkIDs)
 	if errors.Is(err, pg.ErrNoRows) {
 		return echo.NewHTTPError(http.StatusBadRequest, ErrAPIKeyNotFound)
 	}
@@ -265,8 +293,11 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateAPIKeyHandler: UpdateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+	lastUsed := time.Now()
+	apiKey.LastUsed = &lastUsed
+	apiKey.TotalRequests = 1000
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, apiKey)
 }
 
 // deleteAPIKeyHandler godoc
@@ -286,7 +317,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 	apiKeyToken, err := uuid.Parse(c.Param(tokenParam))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, tokenParam)
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid uuid for token parameter: %s", c.Param(tokenParam)))
 	}
 
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()

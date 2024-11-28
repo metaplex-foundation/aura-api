@@ -21,7 +21,7 @@ type (
 		RequestsPerSecond int64     `pg:"sbs_request_per_second" json:"requests_per_second"`
 		MinimumBalance    int64     `pg:"sbs_minimum_balance" json:"minimum_balance"`
 		TokenLimit        int64     `pg:"sbs_tokens_limit" json:"token_limit"`
-		CreatedAt         time.Time `pg:"sbs_created_at" json:"created_at"`
+		CreatedAt         time.Time `pg:"sbs_created_at" json:"-"`
 	}
 	UserWithSubscription struct {
 		User
@@ -33,7 +33,7 @@ const (
 	usersTable = "users"
 )
 
-func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u User, err error) {
+func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u UserWithSubscription, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
@@ -79,12 +79,15 @@ func (s *Storage) CreateUser(ctx context.Context, dynamicID string) error {
 	return nil
 }
 
-func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u User, err error) {
+func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithSubscription, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
 
-	query := `SELECT usr_id, usr_dynamic_id, usr_created_at, usr_mplx_balance FROM users WHERE usr_dynamic_id = ?`
+	query := `SELECT usr_id, usr_dynamic_id, usr_created_at, usr_mplx_balance, sbs_name, sbs_request_per_second, sbs_minimum_balance, sbs_tokens_limit, sbs_created_at
+				FROM users 
+    			LEFT JOIN subscriptions USING(sbs_id)
+				WHERE usr_dynamic_id = ?`
 	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
 	if err != nil {
 		return u, err
