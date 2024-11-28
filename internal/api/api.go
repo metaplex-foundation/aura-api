@@ -14,11 +14,13 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
 	echoSwagger "github.com/swaggo/echo-swagger"
+	"github.com/swaggo/swag"
 
 	//nolint:goimports
 	"google.golang.org/grpc"
 
 	"github.com/adm-metaex/aura-api/internal/api/config"
+	"github.com/adm-metaex/aura-api/internal/api/docs"
 	_ "github.com/adm-metaex/aura-api/internal/api/docs"
 	"github.com/adm-metaex/aura-api/internal/api/middlewares"
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
@@ -122,6 +124,14 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("NewAuthMiddleware: %w", err)
 	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("hostname: %w", err)
+	}
+	docs.SwaggerInfo.Host = fmt.Sprintf("%s:%d", hostname, cfg.API.Port)
+	swag.Register(docs.SwaggerInfo.InstanceName(), docs.SwaggerInfo)
+
 	a.initAPIHandlers(authMiddleware)
 	a.initAPIDocsHandlers()
 
@@ -149,7 +159,7 @@ func initAPIServer() *echo.Echo {
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
 // @Host						aura-api-dev.mtgrd-das.app
-// @schemes					https
+// @schemes					http https
 // @accept						json
 //
 // @securityDefinitions.apikey	ApiKeyAuth
@@ -164,6 +174,8 @@ func (a *api) initAPIDocsHandlers() {
 func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	log.Logger.API.Infof("initAPIHandlers")
 
+	// public
+	a.router.GET("/networks", a.getSupportedNetworksHandler)
 	// protected
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)

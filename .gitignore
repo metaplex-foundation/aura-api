@@ -19,7 +19,9 @@ vendor/
 .idea
 config.yml*
 distribution.yml
+/scanner
 /api
+/proxy
 
 !/.golangci.yml
 /.build
@@ -34,5 +36,8 @@ mock_*
 *.pem
 firebase.json
 /creds/*
+<<<<<<< HEAD
 !/creds/.gitkeep
+=======
+>>>>>>> main
 sqlite.db*
