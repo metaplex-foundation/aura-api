@@ -1,0 +1,70 @@
+name: Aura-API
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run test
+        run: make test
+
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
+        run: make image push
+        
+      - name: Clean
+        run: make clean
+  
+  cd:
+    name: Continuous Deployment
+    needs: ci
+    runs-on: ubuntu-latest
+
+    steps:  
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Define Application Variables
+      run: |
+        echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
+        echo "VERSION=$(git describe --tags --abbrev=0)-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+    - name: Validate YAML Files
+      uses: docker://cytopia/yamllint:latest
+      with:
+        args: docker-compose.yml
+
+    - name: Update Docker Compose Image Tag
+      uses: mikefarah/yq@master
+      with:
+        cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
+
+    - name: Commit and Push Changes
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git commit -am "Update $APP version $VERSION"
+        git push

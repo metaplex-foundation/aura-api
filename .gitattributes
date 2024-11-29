@@ -1,0 +1,3 @@
+Dockerfile merge=ours
+Makefile merge=ours
+docker-compose.yml merge=ours
