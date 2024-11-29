@@ -12,6 +12,8 @@ services:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
     env_file:
       - .env
+    environment:
+      HOST_HOSTNAME: "${HOST_HOSTNAME}"
     command:
       - -log=debug
     logging:
