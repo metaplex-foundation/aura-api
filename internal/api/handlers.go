@@ -337,3 +337,30 @@ func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 
 	return c.NoContent(http.StatusOK)
 }
+
+func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
+	networks := make([]string, 0, len(a.availableNetworks))
+	for network := range a.availableNetworks {
+		networks = append(networks, network)
+	}
+
+	return c.JSON(http.StatusOK, networks)
+}
+
+func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {
+	networks := make([]string, 0, len(a.availableNetworks))
+	for network := range a.availableNetworks {
+		networks = append(networks, network)
+	}
+
+	return c.JSON(http.StatusOK, networks)
+}
+
+func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
+	networks := make([]string, 0, len(a.availableNetworks))
+	for network := range a.availableNetworks {
+		networks = append(networks, network)
+	}
+
+	return c.JSON(http.StatusOK, networks)
+}
