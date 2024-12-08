@@ -112,11 +112,23 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 	return nil
 }
 
-func (s *Storage) DeleteOutdatedStats() error {
-	query := `ALTER TABLE stats DELETE
-    	WHERE toDate(now()) > toDate(timestamp);`
+func (s *Storage) DeleteOutdatedStats(ctx context.Context) error {
+	query := `ALTER TABLE aura.stats
+    DELETE WHERE timestamp < now() - INTERVAL 7 DAY;`
 
-	_, err := s.conn.Exec(query)
+	_, err := s.conn.ExecContext(ctx, query)
+	if err != nil {
+		return fmt.Errorf("exec: %s", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
+	query := `ALTER TABLE aura.aggregated_user_hourly_data
+    DELETE WHERE timestamp < now() - INTERVAL 30 DAY;`
+
+	_, err := s.conn.ExecContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("exec: %s", err)
 	}

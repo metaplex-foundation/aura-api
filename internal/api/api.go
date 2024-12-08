@@ -76,6 +76,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
+	//panic(chStorage.InsertMockData(10000000))
 
 	g := grpc.NewServer()
 	proto.RegisterAuraServer(g, &auraServer{
@@ -135,6 +136,10 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	a.initAPIHandlers(authMiddleware)
 	a.initAPIDocsHandlers()
 
+	err = chStorage.RunInitialAggregation(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
+	}
 	go chStorage.RunStatsAggregator(ctx)
 
 	return a, nil

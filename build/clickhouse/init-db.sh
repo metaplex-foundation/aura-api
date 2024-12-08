@@ -19,6 +19,8 @@ clickhouse client -n <<-EOSQL
         rpc_request_data String,
         timestamp DateTime,
         server_id String,
+        provider String,
+        method_cost String,
         chain String,
         response_size_bytes Int64,
         target_type String
@@ -32,6 +34,7 @@ clickhouse client -n <<-EOSQL
         day Date,
         execution_time_ms Int64,
         response_time_ms Int64,
+        p95_response_time_ms Int64,
         total_req UInt64
     ) ENGINE = ReplacingMergeTree()
           ORDER BY (chain, rpc_method, rpc_request_data, day);
