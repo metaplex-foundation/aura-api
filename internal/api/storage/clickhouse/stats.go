@@ -26,12 +26,12 @@ const (
 )
 
 type ResponseTimeHistory struct {
-	Timestamp         time.Time `json:"timestamp"`
-	AvgResponseTimeMs int64     `json:"avg_response_time_ms"`
-	P95ResponseTimeMs int64     `json:"p95_response_time_ms"`
-	RpcMethod         string    `json:"rpc_method"`
-	Chain             string    `json:"chain"`
-	Token             uuid.UUID `json:"token"`
+	Timestamp         time.Time  `json:"timestamp"`
+	AvgResponseTimeMs int64      `json:"avg_response_time_ms"`
+	P95ResponseTimeMs int64      `json:"p95_response_time_ms"`
+	RpcMethod         string     `json:"rpc_method"`
+	Network           string     `json:"network"`
+	Token             *uuid.UUID `json:"token,omitempty"`
 }
 
 func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
@@ -147,7 +147,8 @@ func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid
 	if chain != nil {
 		ch = *chain
 	}
-	if !(isFromStats && ch == allData) {
+	// TODO: refactor
+	if !(isFromStats && ch == allData) && !(!isFromStats && rpcMethod != nil) {
 		builder = builder.Where(sq.Eq{"chain": ch})
 	}
 
@@ -207,8 +208,12 @@ func (s *Storage) GetResponseTimeHistory(
 
 	for rows.Next() {
 		var entry ResponseTimeHistory
-		if err = rows.Scan(&entry.RpcMethod, &entry.Chain, &entry.Token, &entry.AvgResponseTimeMs, &entry.P95ResponseTimeMs, &entry.Timestamp); err != nil {
+		if err = rows.Scan(&entry.RpcMethod, &entry.Network, &entry.Token, &entry.AvgResponseTimeMs, &entry.P95ResponseTimeMs, &entry.Timestamp); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
+		}
+		var defaultUUID uuid.UUID
+		if entry.Token != nil && *entry.Token == defaultUUID {
+			entry.Token = nil
 		}
 		result = append(result, entry)
 	}

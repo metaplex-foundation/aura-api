@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
+	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
@@ -351,6 +353,14 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
+	granularity := c.QueryParam(granularityParam)
+	if granularity == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", granularityParam))
+	}
+	if _, ok := allowedResponseTimeHistoryGranularity[granularity]; !ok {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid granularity: %s. Allowed: %s", granularity, util.MapKeys(allowedResponseTimeHistoryGranularity)))
+	}
+
 	var startTime time.Time
 	timeframeParamString := c.QueryParam(timeframeParam)
 	if timeframeParamString == "" {
@@ -360,13 +370,8 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-
-	granularity := c.QueryParam(granularityParam)
-	if granularity == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", granularityParam))
-	}
-	if _, ok := allowedResponseTimeHistoryGranularity[granularity]; !ok {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid granularity: %s. Allowed: %s", granularity, util.MapKeys(allowedResponseTimeHistoryGranularity)))
+	if time.Since(startTime) < 24*time.Hour && granularity == clickhouse.DailyGranularity {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Need to select more detailed granularity for selected timeframe: %s", timeframeParamString))
 	}
 
 	var tokenUUID *uuid.UUID
@@ -379,14 +384,20 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 	}
 	var network *string
 	if networkParamString := c.QueryParam(networkParam); networkParamString != "" {
+		// TODO: refactor
+		networkParamString = strings.Title(strings.ToLower(networkParamString))
 		_, ok := a.availableNetworks[networkParamString]
 		if !ok {
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", networkParamString))
 		}
-		network = &networkParamString
+		lowerCaseNetwork := strings.ToLower(networkParamString)
+		network = &lowerCaseNetwork
 	}
 	var method *string
 	if methodParamString := c.QueryParam(methodParam); methodParamString != "" {
+		if network == nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Required to select network when selecting rpc_method")
+		}
 		method = &methodParamString
 	}
 

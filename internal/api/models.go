@@ -75,7 +75,7 @@ func (u *User) FromDBModel(user *postgres.UserWithSubscription) {
 }
 
 func getTimeInterval(timeframe string) (time.Time, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	switch timeframe {
 	case "1h":
 		return now.Add(-1 * time.Hour), nil
