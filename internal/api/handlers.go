@@ -346,10 +346,23 @@ func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 	return c.NoContent(http.StatusOK)
 }
 
+// getAPIResponseTimes godoc
+//
+//	@Summary		Get response time history (avg && p95) for user requests
+//	@Description	Get response time history (avg && p95) for user requests
+//	@Tags			stats
+//	@Produce		json
+//	@Param			show_deleted	query		bool	false	""
+//	@Success		200				{array}		clickhouse.ResponseTimeHistory
+//	@Failure		400				{object}	error
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/stats/response/time [get]
 func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
-		log.Logger.API.Errorf("deleteAPIKeyHandler: fail to get user from context: %v", user)
+		log.Logger.API.Errorf("getAPIResponseTimes: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 

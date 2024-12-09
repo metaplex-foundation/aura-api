@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/adm-metaex/aura-api/pkg/util"
 	"net/http"
 	"time"
 
@@ -15,6 +16,15 @@ var (
 	allowedResponseTimeHistoryGranularity = map[string]struct{}{
 		clickhouse.HourlyGranularity: {},
 		clickhouse.DailyGranularity:  {},
+	}
+	allowedTimeframes = map[string]time.Duration{
+		"1h":  time.Hour,
+		"4h":  4 * time.Hour,
+		"12h": 12 * time.Hour,
+		"1d":  24 * time.Hour,
+		"7d":  7 * 24 * time.Hour,
+		"14d": 14 * 24 * time.Hour,
+		"30d": 30 * 24 * time.Hour,
 	}
 )
 
@@ -75,23 +85,10 @@ func (u *User) FromDBModel(user *postgres.UserWithSubscription) {
 }
 
 func getTimeInterval(timeframe string) (time.Time, error) {
-	now := time.Now().UTC()
-	switch timeframe {
-	case "1h":
-		return now.Add(-1 * time.Hour), nil
-	case "4h":
-		return now.Add(-4 * time.Hour), nil
-	case "12h":
-		return now.Add(-12 * time.Hour), nil
-	case "1d":
-		return now.Add(-24 * time.Hour), nil
-	case "7d":
-		return now.Add(-7 * 24 * time.Hour), nil
-	case "14d":
-		return now.Add(-14 * 24 * time.Hour), nil
-	case "30d":
-		return now.Add(-30 * 24 * time.Hour), nil
-	default:
-		return time.Time{}, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unsupported timeframe: %s", timeframe))
+	timeframeDuration, ok := allowedTimeframes[timeframe]
+	if !ok {
+		return time.Time{}, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unsupported timeframe: %s. Allowed: %s", timeframe, util.MapKeys(allowedTimeframes)))
 	}
+
+	return time.Now().UTC().Add(-timeframeDuration), nil
 }
