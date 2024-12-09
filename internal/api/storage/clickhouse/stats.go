@@ -14,6 +14,17 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
 
+const (
+	allData         = "All"
+	hourlyThreshold = 1 * time.Hour
+	dailyThreshold  = 24 * time.Hour
+)
+
+const (
+	HourlyGranularity = "1h"
+	DailyGranularity  = "1d"
+)
+
 type ResponseTimeHistory struct {
 	Timestamp         time.Time `json:"timestamp"`
 	AvgResponseTimeMs int64     `json:"avg_response_time_ms"`
@@ -121,46 +132,30 @@ func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
 	return nil
 }
 
-func getTimeInterval(timeframe string) (time.Time, error) {
-	now := time.Now()
-	switch timeframe {
-	case "1d":
-		return now.Add(-24 * time.Hour), nil
-	case "7d":
-		return now.Add(-7 * 24 * time.Hour), nil
-	case "14d":
-		return now.Add(-14 * 24 * time.Hour), nil
-	case "30d":
-		return now.Add(-30 * 24 * time.Hour), nil
-	default:
-		return time.Time{}, fmt.Errorf("unsupported timeframe: %s", timeframe)
-	}
-}
-
-func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *string, chain *string, rpcMethod *string, isFromStats bool) sq.SelectBuilder {
+func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid.UUID, chain *string, rpcMethod *string, isFromStats bool) sq.SelectBuilder {
 	builder = builder.Where(sq.Eq{"user_uid": userUID})
 
-	tkn := "00000000-0000-0000-0000-000000000000"
+	var tkn uuid.UUID
 	if tknUUID != nil {
 		tkn = *tknUUID
 	}
-	if !(isFromStats && tkn == "00000000-0000-0000-0000-000000000000") {
+	if !(isFromStats && tknUUID == nil) {
 		builder = builder.Where(sq.Eq{"tkn_uuid": tkn})
 	}
 
-	ch := "All"
+	ch := allData
 	if chain != nil {
 		ch = *chain
 	}
-	if !(isFromStats && ch == "All") {
+	if !(isFromStats && ch == allData) {
 		builder = builder.Where(sq.Eq{"chain": ch})
 	}
 
-	rm := "All"
+	rm := allData
 	if rpcMethod != nil {
 		rm = *rpcMethod
 	}
-	if !(isFromStats && rm == "All") {
+	if !(isFromStats && rm == allData) {
 		builder = builder.Where(sq.Eq{"rpc_method": rm})
 	}
 
@@ -169,34 +164,29 @@ func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *stri
 
 func (s *Storage) GetResponseTimeHistory(
 	userUID string,
-	tknUUID *string,
+	tknUUID *uuid.UUID,
 	chain *string,
 	rpcMethod *string,
-	timeframe string,
+	startTime time.Time,
 	granularity string,
-) ([]ResponseTimeHistory, error) {
-	startTime, err := getTimeInterval(timeframe)
-	if err != nil {
-		return nil, err
+) (result []ResponseTimeHistory, err error) {
+	if userUID == "" {
+		return nil, ErrEmptyUserUUID
 	}
 	diff := time.Since(startTime)
+	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
 
-	const hourlyThreshold = 2 * time.Hour
-	const dailyThreshold = 48 * time.Hour
-
-	isAggregated := (diff > dailyThreshold && granularity == "daily") || (diff > hourlyThreshold && granularity == "hourly")
 	var sqlQuery string
 	var args []interface{}
-
 	if isAggregated {
 		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("buildAggregatedQuery: %s", err)
 		}
 
 		newSQL, newArgs, err := s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("buildStatsQuery 1: %s", err)
 		}
 
 		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
@@ -205,21 +195,20 @@ func (s *Storage) GetResponseTimeHistory(
 	} else {
 		sqlQuery, args, err = s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("buildStatsQuery 2: %s", err)
 		}
 	}
 
 	rows, err := s.conn.Query(sqlQuery, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query: %s", err)
 	}
 	defer rows.Close()
 
-	var result []ResponseTimeHistory
 	for rows.Next() {
 		var entry ResponseTimeHistory
-		if err := rows.Scan(&entry.RpcMethod, &entry.Chain, &entry.Token, &entry.AvgResponseTimeMs, &entry.P95ResponseTimeMs, &entry.Timestamp); err != nil {
-			return nil, err
+		if err = rows.Scan(&entry.RpcMethod, &entry.Chain, &entry.Token, &entry.AvgResponseTimeMs, &entry.P95ResponseTimeMs, &entry.Timestamp); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
 	}
@@ -228,7 +217,7 @@ func (s *Storage) GetResponseTimeHistory(
 
 func (s *Storage) buildAggregatedQuery(
 	userUID string,
-	tknUUID *string,
+	tknUUID *uuid.UUID,
 	chain *string,
 	rpcMethod *string,
 	granularity string,
@@ -236,7 +225,11 @@ func (s *Storage) buildAggregatedQuery(
 ) (string, []interface{}, error) {
 	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
 	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, false)
-	builder = builder.From("aura.aggregated_user_" + granularity + "_data")
+	table := userHourlyAggregatedTableName
+	if granularity == DailyGranularity {
+		table = userDailyAggregatedTableName
+	}
+	builder = builder.From(table)
 	builder = builder.Columns(
 		"coalesce(nullIf(rpc_method, ''), 'All')",
 		"coalesce(nullIf(chain, ''), 'All')",
@@ -245,7 +238,7 @@ func (s *Storage) buildAggregatedQuery(
 		"p95_response_time_ms",
 	)
 	newDataTimeEnd := calculateNewDataTimeEnd(granularity)
-	if granularity == "hourly" {
+	if granularity == HourlyGranularity {
 		builder = builder.Columns("timestamp as ts").GroupBy("timestamp").Where("timestamp >= ?", startTime).Where("timestamp < ?", newDataTimeEnd)
 	} else {
 		builder = builder.Columns("day as ts").GroupBy("day").Where("toDateTime(day) >= ?", startTime).Where("toDateTime(day) < ?", newDataTimeEnd)
@@ -257,7 +250,7 @@ func (s *Storage) buildAggregatedQuery(
 
 func (s *Storage) buildStatsQuery(
 	userUID string,
-	tknUUID *string,
+	tknUUID *uuid.UUID,
 	chain *string,
 	rpcMethod *string,
 	granularity string,
@@ -285,7 +278,7 @@ func (s *Storage) buildStatsQuery(
 		"toInt64(avg(response_time_ms)) as avg_response_time_ms",
 		"toInt64(quantileTiming(0.95)(response_time_ms)) as p95_response_time_ms",
 	)
-	if granularity == "hourly" {
+	if granularity == HourlyGranularity {
 		builder = builder.Columns("toStartOfHour(timestamp) as ts")
 	} else {
 		builder = builder.Columns("toDate(timestamp) as ts")
@@ -298,8 +291,8 @@ func (s *Storage) buildStatsQuery(
 }
 
 func calculateNewDataTimeEnd(granularity string) time.Time {
-	if granularity == "hourly" {
-		return time.Now().UTC().Truncate(time.Hour).Add(-2 * time.Hour)
+	if granularity == HourlyGranularity {
+		return time.Now().UTC().Truncate(hourlyThreshold).Add(-hourlyThreshold)
 	}
-	return time.Now().UTC().Truncate(24 * time.Hour).Add(-48 * time.Hour)
+	return time.Now().UTC().Truncate(dailyThreshold).Add(-dailyThreshold)
 }

@@ -193,7 +193,8 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	apiKeysGroup.PATCH("/:token", a.updateAPIKeyHandler)
 	apiKeysGroup.DELETE("/:token", a.deleteAPIKeyHandler)
 	// User stats
-	protectedGroup.GET("/stats/response/time", a.getAPIResponseTimes)
+	statsGroup := protectedGroup.Group("/stats")
+	statsGroup.GET("/response/time", a.getAPIResponseTimes)
 }
 
 func (a *api) Run() (err error) {

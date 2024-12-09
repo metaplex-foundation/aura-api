@@ -13,6 +13,7 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
@@ -21,12 +22,17 @@ const metaplexTokenDecimals = 6
 const (
 	showDeletedAPIKeysParam = "show_deleted"
 	tokenParam              = "token"
+	networkParam            = "network"
+	methodParam             = "method"
+	timeframeParam          = "timeframe"
+	granularityParam        = "granularity"
 )
 
 var (
 	ErrAPIKeyNotFound          = "API key not found"
 	ErrApiKeyNameAlreadyExists = "API key name already exists"
 	ErrUserNotFound            = "User not found"
+	ErrNoDataAvailable         = "No data available"
 )
 
 // getSupportedNetworksHandler godoc
@@ -345,14 +351,55 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	chain := "solana"
-	method := "getAccountInfo"
-	networks, err := a.chStorage.GetResponseTimeHistory("user_123", nil, &chain, &method, "7d", "hourly")
+	var startTime time.Time
+	timeframeParamString := c.QueryParam(timeframeParam)
+	if timeframeParamString == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", timeframeParam))
+	}
+	startTime, err = getTimeInterval(timeframeParamString)
 	if err != nil {
-		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
+		return err
 	}
 
-	return c.JSON(http.StatusOK, networks)
+	granularity := c.QueryParam(granularityParam)
+	if granularity == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", granularityParam))
+	}
+	if _, ok := allowedResponseTimeHistoryGranularity[granularity]; !ok {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid granularity: %s. Allowed: %s", granularity, util.MapKeys(allowedResponseTimeHistoryGranularity)))
+	}
+
+	var tokenUUID *uuid.UUID
+	if tokenParamString := c.QueryParam(tokenParam); tokenParamString != "" {
+		t, err := uuid.Parse(tokenParamString)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, tokenParam) // TODO
+		}
+		tokenUUID = &t
+	}
+	var network *string
+	if networkParamString := c.QueryParam(networkParam); networkParamString != "" {
+		_, ok := a.availableNetworks[networkParamString]
+		if !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", networkParamString))
+		}
+		network = &networkParamString
+	}
+	var method *string
+	if methodParamString := c.QueryParam(methodParam); methodParamString != "" {
+		method = &methodParamString
+	}
+
+	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, tokenUUID, network, method, startTime, granularity)
+	if err != nil {
+		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	if len(responseTimeHistory) == 0 {
+		return echo.NewHTTPError(http.StatusNotFound, ErrNoDataAvailable)
+	}
+
+	return c.JSON(http.StatusOK, responseTimeHistory)
 }
 
 func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {

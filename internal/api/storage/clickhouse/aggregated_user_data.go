@@ -32,7 +32,7 @@ const (
 func (s *Storage) InsertMockData(count int) error {
 	ctx := context.Background()
 
-	userUID := "user_123"
+	userUID := "1e05920a-bf02-45bf-96a1-a2062c2e0056"
 	tknUUIDs := []uuid.UUID{
 		uuid.New(),
 		//uuid.New(),
