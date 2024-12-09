@@ -14,29 +14,14 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
 
-type StatsFilterCondition struct {
-	Field string
-	Value string
+type ResponseTimeHistory struct {
+	Timestamp         time.Time `json:"timestamp"`
+	AvgResponseTimeMs int64     `json:"avg_response_time_ms"`
+	P95ResponseTimeMs int64     `json:"p95_response_time_ms"`
+	RpcMethod         string    `json:"rpc_method"`
+	Chain             string    `json:"chain"`
+	Token             uuid.UUID `json:"token"`
 }
-
-type Stat struct {
-	Timestamp      time.Time `json:"timestamp" format:"date-time" example:"2023-10-05T21:51:25.913824Z"`
-	UserUID        string    `json:"user_uid,omitempty"`
-	RequestUUID    string    `json:"request_uuid" example:"20c022cd-16b0-4b92-8144-135583710fc4" format:"uuid"`
-	Endpoint       string    `json:"endpoint" example:"http://127.0.0.1"`
-	RPCErrorCode   string    `json:"rpc_error_code" example:"-32601"`
-	UserAgent      string    `json:"user_agent,omitempty"`
-	RPCMethod      string    `json:"rpc_method"`
-	RPCRequestData string    `json:"rpc_request_data"`
-	Chain          string    `json:"chain"`
-	ExecutionTime  int64     `json:"execution_time_ms" example:"1"`
-	ResponseTime   int64     `json:"response_time_ms" example:"1"`
-	Status         uint16    `json:"status,omitempty" example:"200"`
-	Attempts       uint8     `json:"attempts" example:"1"`
-	Project        uuid.UUID `json:"prj_uuid,omitempty"`
-}
-
-const statsTableName = "stats"
 
 func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 	if len(stats) == 0 {
@@ -136,57 +121,185 @@ func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
 	return nil
 }
 
-func (s *Storage) SelectStats(ctx context.Context, userUID string, project uuid.UUID, beforeReqUUID string, limit int, filters map[string][]string, sorts []StatsFilterCondition) (res []Stat, err error) {
-	if userUID == "" {
-		return nil, ErrEmptyUserUUID
+func getTimeInterval(timeframe string) (time.Time, error) {
+	now := time.Now()
+	switch timeframe {
+	case "1d":
+		return now.Add(-24 * time.Hour), nil
+	case "7d":
+		return now.Add(-7 * 24 * time.Hour), nil
+	case "14d":
+		return now.Add(-14 * 24 * time.Hour), nil
+	case "30d":
+		return now.Add(-30 * 24 * time.Hour), nil
+	default:
+		return time.Time{}, fmt.Errorf("unsupported timeframe: %s", timeframe)
+	}
+}
+
+func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *string, chain *string, rpcMethod *string, isFromStats bool) sq.SelectBuilder {
+	builder = builder.Where(sq.Eq{"user_uid": userUID})
+
+	tkn := "00000000-0000-0000-0000-000000000000"
+	if tknUUID != nil {
+		tkn = *tknUUID
+	}
+	if !(isFromStats && tkn == "00000000-0000-0000-0000-000000000000") {
+		builder = builder.Where(sq.Eq{"tkn_uuid": tkn})
 	}
 
-	q := sq.Select("request_uuid, status, execution_time_ms, endpoint, attempts, response_time_ms, rpc_error_code, user_agent, rpc_method, rpc_request_data, timestamp, chain").
-		From(statsTableName).
-		Where("user_uid = ? AND prj_uuid = ?", userUID, project)
-	if limit != 0 {
-		q = q.Limit(uint64(limit))
+	ch := "All"
+	if chain != nil {
+		ch = *chain
 	}
-	if beforeReqUUID != "" {
-		q = q.Where("request_uuid < ?", beforeReqUUID)
+	if !(isFromStats && ch == "All") {
+		builder = builder.Where(sq.Eq{"chain": ch})
 	}
 
-	for field, value := range filters {
-		q = q.Where(fmt.Sprintf("%s IN (?)", field), value)
+	rm := "All"
+	if rpcMethod != nil {
+		rm = *rpcMethod
 	}
-	for _, sort := range sorts {
-		q = q.OrderBy(fmt.Sprintf("%s %s", sort.Field, sort.Value))
-	}
-
-	if len(sorts) == 0 {
-		q = q.OrderBy("request_uuid desc")
+	if !(isFromStats && rm == "All") {
+		builder = builder.Where(sq.Eq{"rpc_method": rm})
 	}
 
-	query, args, err := q.ToSql()
+	return builder
+}
+
+func (s *Storage) GetResponseTimeHistory(
+	userUID string,
+	tknUUID *string,
+	chain *string,
+	rpcMethod *string,
+	timeframe string,
+	granularity string,
+) ([]ResponseTimeHistory, error) {
+	startTime, err := getTimeInterval(timeframe)
 	if err != nil {
-		return res, err
+		return nil, err
+	}
+	diff := time.Since(startTime)
+
+	const hourlyThreshold = 2 * time.Hour
+	const dailyThreshold = 48 * time.Hour
+
+	isAggregated := (diff > dailyThreshold && granularity == "daily") || (diff > hourlyThreshold && granularity == "hourly")
+	var sqlQuery string
+	var args []interface{}
+
+	if isAggregated {
+		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime)
+		if err != nil {
+			return nil, err
+		}
+
+		newSQL, newArgs, err := s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
+		if err != nil {
+			return nil, err
+		}
+
+		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
+		args = append(args, oldArgs...)
+		args = append(args, newArgs...)
+	} else {
+		sqlQuery, args, err = s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	rows, err := s.conn.QueryContext(ctx, query, args...)
+	rows, err := s.conn.Query(sqlQuery, args...)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 	defer rows.Close()
 
+	var result []ResponseTimeHistory
 	for rows.Next() {
-		var r Stat
-		err = rows.Scan(&r.RequestUUID, &r.Status, &r.ExecutionTime, &r.Endpoint, &r.Attempts, &r.ResponseTime, &r.RPCErrorCode,
-			&r.UserAgent, &r.RPCMethod, &r.RPCRequestData, &r.Timestamp, &r.Chain)
-		if err != nil {
-			return res, err
+		var entry ResponseTimeHistory
+		if err := rows.Scan(&entry.RpcMethod, &entry.Chain, &entry.Token, &entry.AvgResponseTimeMs, &entry.P95ResponseTimeMs, &entry.Timestamp); err != nil {
+			return nil, err
 		}
-
-		res = append(res, r)
+		result = append(result, entry)
 	}
+	return result, nil
+}
 
-	if err := rows.Err(); err != nil {
-		return res, err
+func (s *Storage) buildAggregatedQuery(
+	userUID string,
+	tknUUID *string,
+	chain *string,
+	rpcMethod *string,
+	granularity string,
+	startTime time.Time,
+) (string, []interface{}, error) {
+	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, false)
+	builder = builder.From("aura.aggregated_user_" + granularity + "_data")
+	builder = builder.Columns(
+		"coalesce(nullIf(rpc_method, ''), 'All')",
+		"coalesce(nullIf(chain, ''), 'All')",
+		"tkn_uuid",
+		"avg_response_time_ms",
+		"p95_response_time_ms",
+	)
+	newDataTimeEnd := calculateNewDataTimeEnd(granularity)
+	if granularity == "hourly" {
+		builder = builder.Columns("timestamp as ts").GroupBy("timestamp").Where("timestamp >= ?", startTime).Where("timestamp < ?", newDataTimeEnd)
+	} else {
+		builder = builder.Columns("day as ts").GroupBy("day").Where("toDateTime(day) >= ?", startTime).Where("toDateTime(day) < ?", newDataTimeEnd)
 	}
+	builder = builder.GroupBy("avg_response_time_ms, p95_response_time_ms, rpc_method, chain, tkn_uuid")
 
-	return
+	return builder.ToSql()
+}
+
+func (s *Storage) buildStatsQuery(
+	userUID string,
+	tknUUID *string,
+	chain *string,
+	rpcMethod *string,
+	granularity string,
+) (string, []interface{}, error) {
+	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true)
+	builder = builder.From("aura.stats")
+
+	if rpcMethod != nil {
+		builder = builder.Columns("coalesce(nullIf(rpc_method, ''), 'All')").GroupBy("rpc_method")
+	} else {
+		builder = builder.Columns("'All' as rpc_method")
+	}
+	if chain != nil {
+		builder = builder.Columns("coalesce(nullIf(chain, ''), 'All')").GroupBy("chain")
+	} else {
+		builder = builder.Columns("'All' as chain")
+	}
+	if tknUUID != nil {
+		builder = builder.Columns("tkn_uuid").GroupBy("tkn_uuid")
+	} else {
+		builder = builder.Columns("toUUID('00000000-0000-0000-0000-000000000000') as tkn_uuid")
+	}
+	builder = builder.Columns(
+		"toInt64(avg(response_time_ms)) as avg_response_time_ms",
+		"toInt64(quantileTiming(0.95)(response_time_ms)) as p95_response_time_ms",
+	)
+	if granularity == "hourly" {
+		builder = builder.Columns("toStartOfHour(timestamp) as ts")
+	} else {
+		builder = builder.Columns("toDate(timestamp) as ts")
+	}
+	newDataTimeEnd := calculateNewDataTimeEnd(granularity)
+	builder = builder.Where("timestamp >= ?", newDataTimeEnd).Where("timestamp <= now()")
+	builder = builder.GroupBy("ts")
+
+	return builder.ToSql()
+}
+
+func calculateNewDataTimeEnd(granularity string) time.Time {
+	if granularity == "hourly" {
+		return time.Now().UTC().Truncate(time.Hour).Add(-2 * time.Hour)
+	}
+	return time.Now().UTC().Truncate(24 * time.Hour).Add(-48 * time.Hour)
 }

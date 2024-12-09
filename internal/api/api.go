@@ -76,7 +76,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
-	//panic(chStorage.InsertMockData(10000000))
+	//panic(chStorage.InsertMockData(100000))
 
 	g := grpc.NewServer()
 	proto.RegisterAuraServer(g, &auraServer{
@@ -192,6 +192,8 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	apiKeysGroup.POST("", a.createAPIKeyHandler)
 	apiKeysGroup.PATCH("/:token", a.updateAPIKeyHandler)
 	apiKeysGroup.DELETE("/:token", a.deleteAPIKeyHandler)
+	// User stats
+	protectedGroup.GET("/stats/response/time", a.getAPIResponseTimes)
 }
 
 func (a *api) Run() (err error) {

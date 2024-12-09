@@ -82,8 +82,8 @@ func (s *Storage) InsertMockData(count int) error {
 	}
 	defer stmt.Close()
 
-	now := time.Now().Add(-1 * 24 * time.Hour)
-	startTime := now.Add(-3 * 24 * time.Hour)
+	now := time.Now()
+	startTime := now.Add(-15 * 24 * time.Hour)
 
 	for i := 0; i < count; i++ {
 		tkn := tknUUIDs[rand.Intn(len(tknUUIDs))]
@@ -123,7 +123,7 @@ func (s *Storage) InsertMockData(count int) error {
 		}
 
 		// timestamp - рандомний у останніх 30 днях
-		diff := rand.Int63n(int64(3 * 24 * time.Hour))
+		diff := rand.Int63n(int64(15 * 24 * time.Hour))
 		ts := startTime.Add(time.Duration(diff))
 
 		// response_size_bytes

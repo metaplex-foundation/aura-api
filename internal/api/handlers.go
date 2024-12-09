@@ -339,9 +339,17 @@ func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 }
 
 func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
-	networks := make([]string, 0, len(a.availableNetworks))
-	for network := range a.availableNetworks {
-		networks = append(networks, network)
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("deleteAPIKeyHandler: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	chain := "solana"
+	method := "getAccountInfo"
+	networks, err := a.chStorage.GetResponseTimeHistory("user_123", nil, &chain, &method, "7d", "hourly")
+	if err != nil {
+		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
 	}
 
 	return c.JSON(http.StatusOK, networks)

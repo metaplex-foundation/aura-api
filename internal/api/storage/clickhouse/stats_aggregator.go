@@ -50,6 +50,18 @@ func (s *Storage) RunInitialAggregation(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("AggregateUserDataHourly: %s", err)
 	}
+	err = s.AggregateAnalysisData(ctx, false)
+	if err != nil {
+		return fmt.Errorf("AggregateAnalysisData: %s", err)
+	}
+	err = s.DeleteOutdatedStats(ctx)
+	if err != nil {
+		return fmt.Errorf("DeleteOutdatedStats: %s", err)
+	}
+	err = s.DeleteOutdatedHourlyData(ctx)
+	if err != nil {
+		return fmt.Errorf("DeleteOutdatedHourlyData: %s", err)
+	}
 
 	return nil
 }
