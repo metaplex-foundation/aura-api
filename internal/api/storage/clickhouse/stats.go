@@ -25,14 +25,23 @@ const (
 	DailyGranularity  = "1d"
 )
 
-type ResponseTimeHistory struct {
-	Timestamp         time.Time  `json:"timestamp"`
-	AvgResponseTimeMs int64      `json:"avg_response_time_ms"`
-	P95ResponseTimeMs int64      `json:"p95_response_time_ms"`
-	RpcMethod         string     `json:"rpc_method"`
-	Network           string     `json:"network"`
-	Token             *uuid.UUID `json:"token,omitempty"`
-}
+type (
+	ResponseTimeHistory struct {
+		Timestamp         time.Time  `json:"timestamp"`
+		AvgResponseTimeMs int64      `json:"avg_response_time_ms"`
+		P95ResponseTimeMs int64      `json:"p95_response_time_ms"`
+		RpcMethod         string     `json:"rpc_method"`
+		Network           string     `json:"network"`
+		Token             *uuid.UUID `json:"token,omitempty"`
+	}
+	RequestsVolumeHistory struct {
+		Timestamp time.Time  `json:"timestamp"`
+		Volume    int64      `json:"volume"`
+		RpcMethod string     `json:"rpc_method"`
+		Network   string     `json:"network"`
+		Token     *uuid.UUID `json:"token,omitempty"`
+	}
+)
 
 func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 	if len(stats) == 0 {
@@ -161,6 +170,63 @@ func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid
 	}
 
 	return builder
+}
+
+func (s *Storage) GetRequestsVolumeHistory(
+	userUID string,
+	tknUUID *uuid.UUID,
+	chain *string,
+	rpcMethod *string,
+	startTime time.Time,
+	granularity string,
+) (result []RequestsVolumeHistory, err error) {
+	if userUID == "" {
+		return nil, ErrEmptyUserUUID
+	}
+	diff := time.Since(startTime)
+	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
+
+	var sqlQuery string
+	var args []interface{}
+	if isAggregated {
+		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime)
+		if err != nil {
+			return nil, fmt.Errorf("buildAggregatedQuery: %s", err)
+		}
+
+		newSQL, newArgs, err := s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
+		if err != nil {
+			return nil, fmt.Errorf("buildStatsQuery 1: %s", err)
+		}
+
+		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
+		args = append(args, oldArgs...)
+		args = append(args, newArgs...)
+	} else {
+		sqlQuery, args, err = s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
+		if err != nil {
+			return nil, fmt.Errorf("buildStatsQuery 2: %s", err)
+		}
+	}
+
+	rows, err := s.conn.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry RequestsVolumeHistory
+		if err = rows.Scan(&entry.RpcMethod, &entry.Network, &entry.Token, &entry.Volume, &entry.Timestamp); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
+		}
+		var defaultUUID uuid.UUID
+		if entry.Token != nil && *entry.Token == defaultUUID {
+			entry.Token = nil
+		}
+		result = append(result, entry)
+	}
+	return result, nil
 }
 
 func (s *Storage) GetResponseTimeHistory(

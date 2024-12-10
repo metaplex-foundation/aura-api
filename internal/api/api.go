@@ -159,11 +159,10 @@ func initAPIServer() *echo.Echo {
 }
 
 // @title						Swagger Aura
-// @version					0.0.1
+// @version					0.0.2
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
-// @Host						aura-api-dev.mtgrd-das.app
 // @schemes					http https
 // @accept						json
 //
@@ -195,6 +194,7 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	// User stats
 	statsGroup := protectedGroup.Group("/stats")
 	statsGroup.GET("/response/time", a.getAPIResponseTimes)
+	statsGroup.GET("/response/volume", a.getAPIRequestsVolume)
 }
 
 func (a *api) Run() (err error) {

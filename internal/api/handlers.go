@@ -5,17 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
-	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
@@ -316,7 +313,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			token	path		string	true	"Token parameter"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
-//	@Success		200		{string}	"Api key was deleted successfully. Return empty string"
+//	@Success		200		{string}	string	"Api key was deleted successfully. Return empty string"
 //	@Failure		400		{object}	error
 //	@Failure		401		{object}	error
 //	@Failure		500		{object}	error
@@ -352,11 +349,16 @@ func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 //	@Description	Get response time history (avg && p95) for user requests
 //	@Tags			stats
 //	@Produce		json
-//	@Param			show_deleted	query		bool	false	""
-//	@Success		200				{array}		clickhouse.ResponseTimeHistory
-//	@Failure		400				{object}	error
-//	@Failure		401				{object}	error
-//	@Failure		500				{object}	error
+//	@Param			granularity	query		string	true	"Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)"
+//	@Param			timeframe	query		string	true	"Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]"
+//	@Param			token		query		string	false	"User api token"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Param			network		query		string	false	"Network where requests were executed"
+//	@Param			method		query		string	false	"RPC method. If indicated, require paas network parameter too"
+//	@Success		200			{array}		clickhouse.ResponseTimeHistory
+//	@Failure		400			{object}	error
+//	@Failure		401			{object}	error
+//	@Failure		404			{string}	error	"No data available for selected timeframe"
+//	@Failure		500			{object}	error
 //	@Security		ApiKeyAuth
 //	@Router			/stats/response/time [get]
 func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
@@ -365,74 +367,57 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getAPIResponseTimes: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-
-	granularity := c.QueryParam(granularityParam)
-	if granularity == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", granularityParam))
-	}
-	if _, ok := allowedResponseTimeHistoryGranularity[granularity]; !ok {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid granularity: %s. Allowed: %s", granularity, util.MapKeys(allowedResponseTimeHistoryGranularity)))
-	}
-
-	var startTime time.Time
-	timeframeParamString := c.QueryParam(timeframeParam)
-	if timeframeParamString == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missed required param: %s", timeframeParam))
-	}
-	startTime, err = getTimeInterval(timeframeParamString)
+	var params StatsRequestParams
+	err = params.Bind(c, a.availableNetworks)
 	if err != nil {
 		return err
 	}
-	if time.Since(startTime) < 24*time.Hour && granularity == clickhouse.DailyGranularity {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Need to select more detailed granularity for selected timeframe: %s", timeframeParamString))
-	}
 
-	var tokenUUID *uuid.UUID
-	if tokenParamString := c.QueryParam(tokenParam); tokenParamString != "" {
-		t, err := uuid.Parse(tokenParamString)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, tokenParam) // TODO
-		}
-		tokenUUID = &t
-	}
-	var network *string
-	if networkParamString := c.QueryParam(networkParam); networkParamString != "" {
-		// TODO: refactor
-		networkParamString = strings.Title(strings.ToLower(networkParamString))
-		_, ok := a.availableNetworks[networkParamString]
-		if !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", networkParamString))
-		}
-		lowerCaseNetwork := strings.ToLower(networkParamString)
-		network = &lowerCaseNetwork
-	}
-	var method *string
-	if methodParamString := c.QueryParam(methodParam); methodParamString != "" {
-		if network == nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "Required to select network when selecting rpc_method")
-		}
-		method = &methodParamString
-	}
-
-	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, tokenUUID, network, method, startTime, granularity)
+	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
 	if err != nil {
 		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
-	}
-	if len(responseTimeHistory) == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, ErrNoDataAvailable)
 	}
 
 	return c.JSON(http.StatusOK, responseTimeHistory)
 }
 
+// getAPIRequestsVolume godoc
+//
+//	@Summary		Get user requests volume
+//	@Description	Get user requests volume
+//	@Tags			stats
+//	@Produce		json
+//	@Param			granularity	query		string	true	"Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)"
+//	@Param			timeframe	query		string	true	"Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]"
+//	@Param			token		query		string	false	"User api token"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Param			network		query		string	false	"Network where requests were executed"
+//	@Param			method		query		string	false	"RPC method. If indicated, require paas network parameter too"
+//	@Success		200			{array}		clickhouse.RequestsVolumeHistory
+//	@Failure		400			{object}	error
+//	@Failure		401			{object}	error
+//	@Failure		404			{string}	error	"No data available for selected timeframe"
+//	@Failure		500			{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/stats/response/volume [get]
 func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {
-	networks := make([]string, 0, len(a.availableNetworks))
-	for network := range a.availableNetworks {
-		networks = append(networks, network)
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("getAPIRequestsVolume: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	var params StatsRequestParams
+	err = params.Bind(c, a.availableNetworks)
+	if err != nil {
+		return err
+	}
+	requestsVolumeHistory, err := a.chStorage.GetRequestsVolumeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	if err != nil {
+		log.Logger.API.Errorf("GetRequestsVolumeHistory: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, networks)
+	return c.JSON(http.StatusOK, requestsVolumeHistory)
 }
 
 func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
