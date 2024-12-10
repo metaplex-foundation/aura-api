@@ -475,6 +475,11 @@ func fillGapsGeneric[T TimeSeriesEntry[T]](entries []T, startTime time.Time, gra
 
 	finalResult := make([]T, 0, len(entries)*2)
 	now := time.Now()
+	if granularity == HourlyGranularity {
+		startTime = startTime.Truncate(time.Hour)
+	} else {
+		startTime = startTime.Truncate(24 * time.Hour)
+	}
 
 	firstTimestamp := entries[0].GetTimestamp()
 	if firstTimestamp.After(startTime) {
