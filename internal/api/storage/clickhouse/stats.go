@@ -28,8 +28,8 @@ const (
 type (
 	ResponseTimeHistory struct {
 		Timestamp         time.Time  `json:"timestamp"`
-		AvgResponseTimeMs int64      `json:"avg_response_time_ms"`
-		P95ResponseTimeMs int64      `json:"p95_response_time_ms"`
+		AvgResponseTimeMs *int64     `json:"avg_response_time_ms"`
+		P95ResponseTimeMs *int64     `json:"p95_response_time_ms"`
 		RpcMethod         string     `json:"rpc_method"`
 		Network           string     `json:"network"`
 		Token             *uuid.UUID `json:"token,omitempty"`
@@ -43,6 +43,53 @@ type (
 		Token         *uuid.UUID `json:"token,omitempty"`
 	}
 )
+
+type TimeSeriesEntry[T any] interface {
+	GetTimestamp() time.Time
+	BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) T
+}
+
+func (r RequestsVolumeHistory) GetTimestamp() time.Time {
+	return r.Timestamp
+}
+
+func (r RequestsVolumeHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) RequestsVolumeHistory {
+	if rpcMethod == nil {
+		r.RpcMethod = allData
+	} else {
+		r.RpcMethod = *rpcMethod
+	}
+	if network == nil {
+		r.Network = allData
+	} else {
+		r.Network = *network
+	}
+	r.Token = token
+	r.Timestamp = t
+
+	return r
+}
+
+func (r ResponseTimeHistory) GetTimestamp() time.Time {
+	return r.Timestamp
+}
+
+func (r ResponseTimeHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) ResponseTimeHistory {
+	if rpcMethod == nil {
+		r.RpcMethod = allData
+	} else {
+		r.RpcMethod = *rpcMethod
+	}
+	if network == nil {
+		r.Network = allData
+	} else {
+		r.Network = *network
+	}
+	r.Token = token
+	r.Timestamp = t
+
+	return r
+}
 
 func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 	if len(stats) == 0 {
@@ -266,7 +313,7 @@ func (s *Storage) GetRequestsVolumeHistory(
 		}
 		result = append(result, entry)
 	}
-	return result, nil
+	return fillGapsGeneric(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
 
 func (s *Storage) GetResponseTimeHistory(
@@ -311,7 +358,7 @@ func (s *Storage) GetResponseTimeHistory(
 		}
 		result = append(result, entry)
 	}
-	return result, nil
+	return fillGapsGeneric(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
 
 func (s *Storage) buildAggregatedQuery(
@@ -396,4 +443,59 @@ func calculateNewDataTimeEnd(granularity string) time.Time {
 		return time.Now().UTC().Truncate(hourlyThreshold).Add(-hourlyThreshold)
 	}
 	return time.Now().UTC().Truncate(dailyThreshold).Add(-dailyThreshold)
+}
+
+func incrementByGranularity(t time.Time, granularity string) time.Time {
+	if granularity == HourlyGranularity {
+		return t.Add(time.Hour)
+	} else {
+		return t.AddDate(0, 0, 1)
+	}
+}
+
+func fillGapsBetween[T TimeSeriesEntry[T]](base []T, start, end time.Time, granularity string, rpcMethod, network *string, token *uuid.UUID) []T {
+	if base == nil {
+		base = []T{}
+	}
+
+	t := incrementByGranularity(start, granularity)
+	for t.Before(end) && !t.Equal(end) {
+		var gap T
+		base = append(base, gap.BuildDefault(rpcMethod, network, token, t))
+		t = incrementByGranularity(t, granularity)
+	}
+
+	return base
+}
+
+func fillGapsGeneric[T TimeSeriesEntry[T]](entries []T, startTime time.Time, granularity string, rpcMethod, network *string, token *uuid.UUID) []T {
+	if len(entries) == 0 {
+		return entries
+	}
+
+	finalResult := make([]T, 0, len(entries)*2)
+	now := time.Now()
+
+	firstTimestamp := entries[0].GetTimestamp()
+	if firstTimestamp.After(startTime) {
+		finalResult = fillGapsBetween(finalResult, startTime, firstTimestamp, granularity, rpcMethod, network, token)
+	}
+
+	finalResult = append(finalResult, entries[0])
+	lastTimestamp := entries[0].GetTimestamp()
+
+	for i := 1; i < len(entries); i++ {
+		nextTimestamp := entries[i].GetTimestamp()
+		if nextTimestamp.After(lastTimestamp) {
+			finalResult = fillGapsBetween(finalResult, lastTimestamp, nextTimestamp, granularity, rpcMethod, network, token)
+		}
+		finalResult = append(finalResult, entries[i])
+		lastTimestamp = entries[i].GetTimestamp()
+	}
+
+	if lastTimestamp.Before(now) {
+		finalResult = fillGapsBetween(finalResult, lastTimestamp, now, granularity, rpcMethod, network, token)
+	}
+
+	return finalResult
 }
