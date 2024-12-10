@@ -8,6 +8,7 @@ require (
 	github.com/MicahParks/keyfunc v1.9.0
 	github.com/gagliardetto/solana-go v1.11.0
 	github.com/getbrevo/brevo-go v1.0.0
+	github.com/go-co-op/gocron v1.37.0
 	github.com/go-pg/migrations/v8 v8.1.0
 	github.com/go-pg/pg/v10 v10.13.0
 	github.com/gocarina/gocsv v0.0.0-20231116093920-b87c2d0e983a
@@ -65,6 +66,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.53.0 // indirect
 	github.com/prometheus/procfs v0.13.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
@@ -77,6 +79,7 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect

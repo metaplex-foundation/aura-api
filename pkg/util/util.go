@@ -35,6 +35,19 @@ func ConvertMap[K comparable, X any, Y any](m map[K]X, callback func(X) Y) map[K
 	return ret
 }
 
+func MapKeys[K comparable, X any](m map[K]X) []K {
+	if len(m) == 0 {
+		return nil
+	}
+
+	ret := make([]K, 0, len(m))
+	for i := range m {
+		ret = append(ret, i)
+	}
+
+	return ret
+}
+
 func NewJSONDecoder(data io.Reader, disallowUnknownFields bool) (decoder *json.Decoder) {
 	decoder = json.NewDecoder(data)
 	decoder.UseNumber()

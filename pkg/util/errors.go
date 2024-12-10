@@ -29,7 +29,7 @@ func ErrMsg(err error) string {
 var (
 	AuraNoAvailableTargetsErrorResponse = types.NewRPCErrorResponse(types.NewRPCError(2000, "No available targets", nil), nil)
 	AuraAttemptsExceededErrorResponse   = types.NewRPCErrorResponse(types.NewRPCError(2001, "Attempts exceeded", nil), nil)
-	ErrChainNotSupported                = types.NewRPCErrorResponse(types.NewRPCError(2002, "Chain not supported", nil), nil)
+	ErrChainNotSupported                = types.NewRPCErrorResponse(types.NewRPCError(2002, "Network not supported", nil), nil)
 )
 
 var ErrBadStatusCode = errors.New("bad status code")
