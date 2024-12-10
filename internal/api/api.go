@@ -76,6 +76,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
+	//panic(chStorage.InsertMockData(100000))
 
 	g := grpc.NewServer()
 	proto.RegisterAuraServer(g, &auraServer{
@@ -135,6 +136,10 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	a.initAPIHandlers(authMiddleware)
 	a.initAPIDocsHandlers()
 
+	err = chStorage.RunInitialAggregation(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
+	}
 	go chStorage.RunStatsAggregator(ctx)
 
 	return a, nil
@@ -154,11 +159,10 @@ func initAPIServer() *echo.Echo {
 }
 
 // @title						Swagger Aura
-// @version					0.0.1
+// @version					0.0.2
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
-// @Host						aura-api-dev.mtgrd-das.app
 // @schemes					http https
 // @accept						json
 //
@@ -187,6 +191,10 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	apiKeysGroup.POST("", a.createAPIKeyHandler)
 	apiKeysGroup.PATCH("/:token", a.updateAPIKeyHandler)
 	apiKeysGroup.DELETE("/:token", a.deleteAPIKeyHandler)
+	// User stats
+	statsGroup := protectedGroup.Group("/stats")
+	statsGroup.GET("/response/time", a.getAPIResponseTimes)
+	statsGroup.GET("/response/volume", a.getAPIRequestsVolume)
 }
 
 func (a *api) Run() (err error) {

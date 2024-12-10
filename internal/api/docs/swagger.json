@@ -12,9 +12,8 @@
         "title": "Swagger Aura",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {},
-        "version": "0.0.1"
+        "version": "0.0.2"
     },
-    "host": "aura-api-dev.mtgrd-das.app",
     "basePath": "/",
     "paths": {
         "/keys": {
@@ -310,6 +309,170 @@
                 }
             }
         },
+        "/stats/response/time": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get response time history (avg \u0026\u0026 p95) for user requests",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Get response time history (avg \u0026\u0026 p95) for user requests",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)",
+                        "name": "granularity",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]",
+                        "name": "timeframe",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "98379b6b-dc6a-4d8e-8271-12eed4822afc",
+                        "description": "User api token",
+                        "name": "token",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Network where requests were executed",
+                        "name": "network",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RPC method. If indicated, require paas network parameter too",
+                        "name": "method",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/clickhouse.ResponseTimeHistory"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "404": {
+                        "description": "No data available for selected timeframe",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/stats/response/volume": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get user requests volume",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Get user requests volume",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)",
+                        "name": "granularity",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]",
+                        "name": "timeframe",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "98379b6b-dc6a-4d8e-8271-12eed4822afc",
+                        "description": "User api token",
+                        "name": "token",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Network where requests were executed",
+                        "name": "network",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "RPC method. If indicated, require paas network parameter too",
+                        "name": "method",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/clickhouse.RequestsVolumeHistory"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "404": {
+                        "description": "No data available for selected timeframe",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/user": {
             "get": {
                 "security": [
@@ -363,8 +526,8 @@
                     "items": {
                         "type": "string",
                         "enum": [
-                            "aura",
-                            " solana"
+                            "Aura",
+                            " Solana"
                         ]
                     }
                 }
@@ -382,8 +545,8 @@
                     "items": {
                         "type": "string",
                         "enum": [
-                            "aura",
-                            " solana"
+                            "Aura",
+                            " Solana"
                         ]
                     }
                 }
@@ -403,6 +566,52 @@
                 },
                 "subscription": {
                     "$ref": "#/definitions/postgres.Subscription"
+                }
+            }
+        },
+        "clickhouse.RequestsVolumeHistory": {
+            "type": "object",
+            "properties": {
+                "network": {
+                    "type": "string"
+                },
+                "rpc_method": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "total_errors": {
+                    "type": "integer"
+                },
+                "total_requests": {
+                    "type": "integer"
+                }
+            }
+        },
+        "clickhouse.ResponseTimeHistory": {
+            "type": "object",
+            "properties": {
+                "avg_response_time_ms": {
+                    "type": "integer"
+                },
+                "network": {
+                    "type": "string"
+                },
+                "p95_response_time_ms": {
+                    "type": "integer"
+                },
+                "rpc_method": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         },
