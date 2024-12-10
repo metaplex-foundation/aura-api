@@ -35,11 +35,12 @@ type (
 		Token             *uuid.UUID `json:"token,omitempty"`
 	}
 	RequestsVolumeHistory struct {
-		Timestamp time.Time  `json:"timestamp"`
-		Volume    int64      `json:"volume"`
-		RpcMethod string     `json:"rpc_method"`
-		Network   string     `json:"network"`
-		Token     *uuid.UUID `json:"token,omitempty"`
+		Timestamp     time.Time  `json:"timestamp"`
+		TotalRequests int64      `json:"total_requests"`
+		TotalErrors   int64      `json:"total_errors"`
+		RpcMethod     string     `json:"rpc_method"`
+		Network       string     `json:"network"`
+		Token         *uuid.UUID `json:"token,omitempty"`
 	}
 )
 
@@ -172,6 +173,60 @@ func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid
 	return builder
 }
 
+func (s *Storage) prepareHistoryQuery(
+	userUID string,
+	tknUUID *uuid.UUID,
+	chain *string,
+	rpcMethod *string,
+	startTime time.Time,
+	granularity string,
+	aggregatedColumns []string,
+	statsColumns []string,
+) (sqlQuery string, args []interface{}, err error) {
+	if userUID == "" {
+		return sqlQuery, args, ErrEmptyUserUUID
+	}
+	diff := time.Since(startTime)
+	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
+
+	if isAggregated {
+		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime, aggregatedColumns)
+		if err != nil {
+			return sqlQuery, args, fmt.Errorf("buildAggregatedQuery: %s", err)
+		}
+
+		newSQL, newArgs, err := s.buildStatsQuery(
+			userUID,
+			tknUUID,
+			chain,
+			rpcMethod,
+			granularity,
+			statsColumns,
+		)
+		if err != nil {
+			return sqlQuery, args, fmt.Errorf("buildStatsQuery (aggregated case): %s", err)
+		}
+
+		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
+		args = append(args, oldArgs...)
+		args = append(args, newArgs...)
+	} else {
+		sqlQuery, args, err = s.buildStatsQuery(
+			userUID,
+			tknUUID,
+			chain,
+			rpcMethod,
+			granularity,
+			statsColumns,
+		)
+		if err != nil {
+			return sqlQuery, args, fmt.Errorf("buildStatsQuery (non-aggregated): %s", err)
+		}
+	}
+
+	return sqlQuery, args, nil
+}
+
 func (s *Storage) GetRequestsVolumeHistory(
 	userUID string,
 	tknUUID *uuid.UUID,
@@ -180,33 +235,18 @@ func (s *Storage) GetRequestsVolumeHistory(
 	startTime time.Time,
 	granularity string,
 ) (result []RequestsVolumeHistory, err error) {
-	if userUID == "" {
-		return nil, ErrEmptyUserUUID
-	}
-	diff := time.Since(startTime)
-	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
-
-	var sqlQuery string
-	var args []interface{}
-	if isAggregated {
-		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime)
-		if err != nil {
-			return nil, fmt.Errorf("buildAggregatedQuery: %s", err)
-		}
-
-		newSQL, newArgs, err := s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
-		if err != nil {
-			return nil, fmt.Errorf("buildStatsQuery 1: %s", err)
-		}
-
-		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
-		args = append(args, oldArgs...)
-		args = append(args, newArgs...)
-	} else {
-		sqlQuery, args, err = s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
-		if err != nil {
-			return nil, fmt.Errorf("buildStatsQuery 2: %s", err)
-		}
+	sqlQuery, args, err := s.prepareHistoryQuery(
+		userUID,
+		tknUUID,
+		chain,
+		rpcMethod,
+		startTime,
+		granularity,
+		[]string{"total_req", "http_err + rpc_err AS total_err"},                                                   // aggregatedColumns
+		[]string{"count(*) AS total_req", "countIf(status != 200) +  countIf(rpc_error_code != '0') AS total_err"}, // statsColumns
+	)
+	if err != nil {
+		return nil, fmt.Errorf("prepareHistoryQuery: %s", err)
 	}
 
 	rows, err := s.conn.Query(sqlQuery, args...)
@@ -217,7 +257,7 @@ func (s *Storage) GetRequestsVolumeHistory(
 
 	for rows.Next() {
 		var entry RequestsVolumeHistory
-		if err = rows.Scan(&entry.RpcMethod, &entry.Network, &entry.Token, &entry.Volume, &entry.Timestamp); err != nil {
+		if err = rows.Scan(&entry.RpcMethod, &entry.Network, &entry.Token, &entry.TotalRequests, &entry.TotalErrors, &entry.Timestamp); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		var defaultUUID uuid.UUID
@@ -237,33 +277,21 @@ func (s *Storage) GetResponseTimeHistory(
 	startTime time.Time,
 	granularity string,
 ) (result []ResponseTimeHistory, err error) {
-	if userUID == "" {
-		return nil, ErrEmptyUserUUID
-	}
-	diff := time.Since(startTime)
-	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
-
-	var sqlQuery string
-	var args []interface{}
-	if isAggregated {
-		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime)
-		if err != nil {
-			return nil, fmt.Errorf("buildAggregatedQuery: %s", err)
-		}
-
-		newSQL, newArgs, err := s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
-		if err != nil {
-			return nil, fmt.Errorf("buildStatsQuery 1: %s", err)
-		}
-
-		sqlQuery = fmt.Sprintf("SELECT * FROM (%s UNION ALL %s) AS combined ORDER BY ts", oldSQL, newSQL)
-		args = append(args, oldArgs...)
-		args = append(args, newArgs...)
-	} else {
-		sqlQuery, args, err = s.buildStatsQuery(userUID, tknUUID, chain, rpcMethod, granularity)
-		if err != nil {
-			return nil, fmt.Errorf("buildStatsQuery 2: %s", err)
-		}
+	sqlQuery, args, err := s.prepareHistoryQuery(
+		userUID,
+		tknUUID,
+		chain,
+		rpcMethod,
+		startTime,
+		granularity,
+		[]string{"avg_response_time_ms", "p95_response_time_ms"}, // aggregatedColumns
+		[]string{
+			"toInt64(avg(response_time_ms)) as avg_response_time_ms",
+			"toInt64(quantileTiming(0.95)(response_time_ms)) as p95_response_time_ms",
+		}, // statsColumns
+	)
+	if err != nil {
+		return nil, fmt.Errorf("prepareHistoryQuery: %s", err)
 	}
 
 	rows, err := s.conn.Query(sqlQuery, args...)
@@ -293,6 +321,7 @@ func (s *Storage) buildAggregatedQuery(
 	rpcMethod *string,
 	granularity string,
 	startTime time.Time,
+	columnsToSelect []string,
 ) (string, []interface{}, error) {
 	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
 	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, false)
@@ -305,16 +334,17 @@ func (s *Storage) buildAggregatedQuery(
 		"coalesce(nullIf(rpc_method, ''), 'All')",
 		"coalesce(nullIf(chain, ''), 'All')",
 		"tkn_uuid",
-		"avg_response_time_ms",
-		"p95_response_time_ms",
 	)
+	for _, column := range columnsToSelect {
+		builder = builder.Columns(column).GroupBy(column)
+	}
 	newDataTimeEnd := calculateNewDataTimeEnd(granularity)
 	if granularity == HourlyGranularity {
 		builder = builder.Columns("timestamp as ts").GroupBy("timestamp").Where("timestamp >= ?", startTime).Where("timestamp < ?", newDataTimeEnd)
 	} else {
 		builder = builder.Columns("day as ts").GroupBy("day").Where("toDateTime(day) >= ?", startTime).Where("toDateTime(day) < ?", newDataTimeEnd)
 	}
-	builder = builder.GroupBy("avg_response_time_ms, p95_response_time_ms, rpc_method, chain, tkn_uuid")
+	builder = builder.GroupBy("rpc_method, chain, tkn_uuid")
 
 	return builder.ToSql()
 }
@@ -325,6 +355,7 @@ func (s *Storage) buildStatsQuery(
 	chain *string,
 	rpcMethod *string,
 	granularity string,
+	columnsToSelect []string,
 ) (string, []interface{}, error) {
 	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
 	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true)
@@ -345,10 +376,9 @@ func (s *Storage) buildStatsQuery(
 	} else {
 		builder = builder.Columns("toUUID('00000000-0000-0000-0000-000000000000') as tkn_uuid")
 	}
-	builder = builder.Columns(
-		"toInt64(avg(response_time_ms)) as avg_response_time_ms",
-		"toInt64(quantileTiming(0.95)(response_time_ms)) as p95_response_time_ms",
-	)
+	for _, column := range columnsToSelect {
+		builder = builder.Columns(column)
+	}
 	if granularity == HourlyGranularity {
 		builder = builder.Columns("toStartOfHour(timestamp) as ts")
 	} else {

@@ -584,7 +584,10 @@
                 "token": {
                     "type": "string"
                 },
-                "volume": {
+                "total_errors": {
+                    "type": "integer"
+                },
+                "total_requests": {
                     "type": "integer"
                 }
             }
