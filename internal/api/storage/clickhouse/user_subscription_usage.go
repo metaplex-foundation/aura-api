@@ -138,7 +138,8 @@ func (s *Storage) GetCreditsUsageHistory(
 		Columns("chain", "sum(used_credits) as used_credits").
 		From(userSubscriptionUsageTable).
 		OrderBy("ts").
-		GroupBy("ts, chain")
+		GroupBy("ts, chain").
+		Where("time >= ?", startTime)
 	if granularity == HourlyGranularity {
 		builder = builder.Columns("toStartOfHour(time) as ts")
 	} else {
