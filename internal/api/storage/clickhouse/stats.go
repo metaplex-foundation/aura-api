@@ -313,7 +313,7 @@ func (s *Storage) GetRequestsVolumeHistory(
 		}
 		result = append(result, entry)
 	}
-	return fillGapsGeneric(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
+	return fillGaps(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
 
 func (s *Storage) GetResponseTimeHistory(
@@ -358,7 +358,7 @@ func (s *Storage) GetResponseTimeHistory(
 		}
 		result = append(result, entry)
 	}
-	return fillGapsGeneric(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
+	return fillGaps(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
 
 func (s *Storage) buildAggregatedQuery(
@@ -468,7 +468,7 @@ func fillGapsBetween[T TimeSeriesEntry[T]](base []T, start, end time.Time, granu
 	return base
 }
 
-func fillGapsGeneric[T TimeSeriesEntry[T]](entries []T, startTime time.Time, granularity string, rpcMethod, network *string, token *uuid.UUID) []T {
+func fillGaps[T TimeSeriesEntry[T]](entries []T, startTime time.Time, granularity string, rpcMethod, network *string, token *uuid.UUID) []T {
 	if len(entries) == 0 {
 		return entries
 	}

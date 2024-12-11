@@ -166,6 +166,66 @@ func (s *Storage) InsertMockData(count int) error {
 	return nil
 }
 
+func (s *Storage) InsertMockedData(count int) error {
+	ctx := context.Background()
+	userUID := "1e05920a-bf02-45bf-96a1-a2062c2e0056"
+	tknUUIDs := []uuid.UUID{
+		uuid.New(),
+		//uuid.New(),
+		uuid.New(),
+	}
+
+	// Підготуємо INSERT запит
+	// Вставляємо дані пачкою (batch insert) для оптимізації
+	tx, err := s.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO aura.user_subscription_usage (time, chain, user_uid, tkn_uuid, used_credits) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Поточний час
+	now := time.Now()
+	// Часова межа 20 днів назад
+	twentyDaysAgo := now.Add(-20 * 24 * time.Hour)
+
+	chains := []string{"solana", "aura"}
+
+	// Заповнення випадковими даними
+	for i := 0; i < count; i++ {
+		// Генеруємо випадковий час між twentyDaysAgo та now
+		diff := now.Sub(twentyDaysAgo)
+		randDuration := time.Duration(rand.Int63n(diff.Nanoseconds()))
+		randomTime := twentyDaysAgo.Add(randDuration)
+
+		// Випадковий chain
+		chain := chains[rand.Intn(len(chains))]
+
+		// Випадковий tkn_uuid з трьох
+		chosenTkn := tknUUIDs[rand.Intn(len(tknUUIDs))]
+
+		// Випадковий used_credits від 0 до 100
+		usedCredits := rand.Int63n(101) // [0,100]
+
+		_, err := stmt.ExecContext(ctx, randomTime, chain, userUID, chosenTkn, usedCredits)
+		if err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to insert row: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Storage) AggregateUserDataHourly(ctx context.Context, aggregateOnlyRecentData bool) error {
 	// TODO: use query builder
 	selectRecentDataCondition := ""
