@@ -303,6 +303,112 @@ paths:
       summary: Get list of supported networks
       tags:
       - networks
+  /stats/credits/usage:
+    get:
+      description: Get user credits usage
+      parameters:
+      - description: Request granularity (1 candle size). Can be either 1d (1 day)
+          or 1h (1 hour)
+        in: query
+        name: granularity
+        required: true
+        type: string
+      - description: 'Request timeframe. Can be one of the following: [1h, 4h, 12h,
+          1d, 7d, 14d, 30d]'
+        in: query
+        name: timeframe
+        required: true
+        type: string
+      - description: User api token
+        example: 98379b6b-dc6a-4d8e-8271-12eed4822afc
+        format: uuid
+        in: query
+        name: token
+        type: string
+      - description: Network where requests were executed
+        in: query
+        name: network
+        type: string
+      - description: RPC method. If indicated, require paas network parameter too
+        in: query
+        name: method
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/clickhouse.RequestsVolumeHistory'
+            type: array
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get user credits usage
+      tags:
+      - stats
+  /stats/request/volume:
+    get:
+      description: Get user requests volume
+      parameters:
+      - description: Request granularity (1 candle size). Can be either 1d (1 day)
+          or 1h (1 hour)
+        in: query
+        name: granularity
+        required: true
+        type: string
+      - description: 'Request timeframe. Can be one of the following: [1h, 4h, 12h,
+          1d, 7d, 14d, 30d]'
+        in: query
+        name: timeframe
+        required: true
+        type: string
+      - description: User api token
+        example: 98379b6b-dc6a-4d8e-8271-12eed4822afc
+        format: uuid
+        in: query
+        name: token
+        type: string
+      - description: Network where requests were executed
+        in: query
+        name: network
+        type: string
+      - description: RPC method. If indicated, require paas network parameter too
+        in: query
+        name: method
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/clickhouse.RequestsVolumeHistory'
+            type: array
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get user requests volume
+      tags:
+      - stats
   /stats/response/time:
     get:
       description: Get response time history (avg && p95) for user requests
@@ -348,73 +454,12 @@ paths:
         "401":
           description: Unauthorized
           schema: {}
-        "404":
-          description: No data available for selected timeframe
-          schema:
-            type: string
         "500":
           description: Internal Server Error
           schema: {}
       security:
       - ApiKeyAuth: []
       summary: Get response time history (avg && p95) for user requests
-      tags:
-      - stats
-  /stats/response/volume:
-    get:
-      description: Get user requests volume
-      parameters:
-      - description: Request granularity (1 candle size). Can be either 1d (1 day)
-          or 1h (1 hour)
-        in: query
-        name: granularity
-        required: true
-        type: string
-      - description: 'Request timeframe. Can be one of the following: [1h, 4h, 12h,
-          1d, 7d, 14d, 30d]'
-        in: query
-        name: timeframe
-        required: true
-        type: string
-      - description: User api token
-        example: 98379b6b-dc6a-4d8e-8271-12eed4822afc
-        format: uuid
-        in: query
-        name: token
-        type: string
-      - description: Network where requests were executed
-        in: query
-        name: network
-        type: string
-      - description: RPC method. If indicated, require paas network parameter too
-        in: query
-        name: method
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/clickhouse.RequestsVolumeHistory'
-            type: array
-        "400":
-          description: Bad Request
-          schema: {}
-        "401":
-          description: Unauthorized
-          schema: {}
-        "404":
-          description: No data available for selected timeframe
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema: {}
-      security:
-      - ApiKeyAuth: []
-      summary: Get user requests volume
       tags:
       - stats
   /user:
