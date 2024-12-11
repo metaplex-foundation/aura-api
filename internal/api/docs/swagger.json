@@ -366,7 +366,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/clickhouse.RequestsVolumeHistory"
+                                "$ref": "#/definitions/clickhouse.CreditsUsageHistory"
                             }
                         }
                     },
@@ -630,6 +630,20 @@
                 },
                 "subscription": {
                     "$ref": "#/definitions/postgres.Subscription"
+                }
+            }
+        },
+        "clickhouse.CreditsUsageHistory": {
+            "type": "object",
+            "properties": {
+                "credits_used": {
+                    "type": "integer"
+                },
+                "network": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
                 }
             }
         },

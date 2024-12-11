@@ -428,7 +428,7 @@ func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {
 //	@Param			token		query		string	false	"User api token"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
 //	@Param			network		query		string	false	"Network where requests were executed"
 //	@Param			method		query		string	false	"RPC method. If indicated, require paas network parameter too"
-//	@Success		200			{array}		clickhouse.RequestsVolumeHistory
+//	@Success		200			{array}		clickhouse.CreditsUsageHistory
 //	@Failure		400			{object}	error
 //	@Failure		401			{object}	error
 //	@Failure		500			{object}	error
