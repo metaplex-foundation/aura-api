@@ -21,9 +21,8 @@ type UserSubscriptionUsage struct {
 
 type (
 	CreditsUsageHistory struct {
-		Timestamp   time.Time `json:"timestamp"`
-		CreditsUsed int64     `json:"credits_used"`
-		Network     string    `json:"network"`
+		Timestamp time.Time        `json:"timestamp"`
+		Networks  map[string]int64 `json:"networks"`
 	}
 )
 
@@ -32,11 +31,6 @@ func (r CreditsUsageHistory) GetTimestamp() time.Time {
 }
 
 func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) CreditsUsageHistory {
-	if network == nil {
-		r.Network = allData
-	} else {
-		r.Network = *network
-	}
 	r.Timestamp = t
 
 	return r
@@ -133,6 +127,11 @@ func (s *Storage) GetCreditsUsageHistory(
 	if userUID == "" {
 		return result, ErrEmptyUserUUID
 	}
+	if granularity == HourlyGranularity {
+		startTime = startTime.Truncate(time.Hour)
+	} else {
+		startTime = startTime.Truncate(24 * time.Hour)
+	}
 	builder := sq.Select().
 		PlaceholderFormat(sq.Question).
 		Columns("chain", "sum(used_credits) as used_credits").
@@ -151,6 +150,15 @@ func (s *Storage) GetCreditsUsageHistory(
 	if err != nil {
 		return nil, fmt.Errorf("ToSql: %s", err)
 	}
+	sqlQuery = fmt.Sprintf(`SELECT
+    	mapFromArrays(
+    	        groupArray(chain),
+    	        groupArray(used_credits)
+    	    ) AS chain_map,
+    	ts
+		FROM (%s)
+		GROUP BY ts
+		ORDER BY ts`, sqlQuery)
 
 	rows, err := s.conn.Query(sqlQuery, args...)
 	if err != nil {
@@ -160,7 +168,7 @@ func (s *Storage) GetCreditsUsageHistory(
 
 	for rows.Next() {
 		var entry CreditsUsageHistory
-		if err = rows.Scan(&entry.Network, &entry.CreditsUsed, &entry.Timestamp); err != nil {
+		if err = rows.Scan(&entry.Networks, &entry.Timestamp); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
