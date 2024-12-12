@@ -32,6 +32,10 @@ func (r CreditsUsageHistory) GetTimestamp() time.Time {
 
 func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) CreditsUsageHistory {
 	r.Timestamp = t
+	r.Networks = map[string]int64{
+		"aura":   0,
+		"solana": 0,
+	}
 
 	return r
 }
