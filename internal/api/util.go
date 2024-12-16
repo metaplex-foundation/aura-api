@@ -19,8 +19,8 @@ const (
 	mimeTextCSV = "text/csv"
 )
 const (
-	consulPricingPath   = "aura-api/config/pricing"
-	consulMplxPricePath = "aura-api/config/mplx"
+	consulPricingPath   = "config/aura-api/pricing"
+	consulMplxPricePath = "config/aura-api/mplx"
 )
 
 func csvResp(c echo.Context, res interface{}, fileName string) error {
