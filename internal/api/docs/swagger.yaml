@@ -36,7 +36,7 @@ definitions:
       mplx_balance:
         type: integer
       subscription:
-        $ref: '#/definitions/postgres.Subscription'
+        $ref: '#/definitions/postgres.Plan'
     type: object
   clickhouse.CreditsUsageHistory:
     properties:
@@ -96,12 +96,12 @@ definitions:
       total_requests:
         type: integer
     type: object
-  postgres.Subscription:
+  postgres.Plan:
     properties:
-      minimum_balance:
-        type: integer
       name:
         type: string
+      priority:
+        type: integer
       requests_per_second:
         type: integer
       token_limit:

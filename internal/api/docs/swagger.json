@@ -629,7 +629,7 @@
                     "type": "integer"
                 },
                 "subscription": {
-                    "$ref": "#/definitions/postgres.Subscription"
+                    "$ref": "#/definitions/postgres.Plan"
                 }
             }
         },
@@ -722,14 +722,14 @@
                 }
             }
         },
-        "postgres.Subscription": {
+        "postgres.Plan": {
             "type": "object",
             "properties": {
-                "minimum_balance": {
-                    "type": "integer"
-                },
                 "name": {
                     "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
                 },
                 "requests_per_second": {
                     "type": "integer"

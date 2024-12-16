@@ -56,7 +56,7 @@ func (a *api) listenConsul(ctx context.Context) {
 		}
 
 		if pair != nil && meta.LastIndex > lastIndex {
-			var pricing pricingPlans
+			var pricing PricingPlans
 			if err = json.Unmarshal(pair.Value, &pricing); err != nil {
 				log.Logger.API.Errorf("listenConsul: json.Unmarshal: %s", err)
 				continue

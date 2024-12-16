@@ -38,22 +38,26 @@ import (
 )
 
 type (
-	pricingModel struct {
-		Rpc      int             `json:"rpc"`
-		PriceUSD decimal.Decimal `json:"price_usd"`
+	PricingModel struct {
+		RequestsPerSecond int             `json:"requests_per_second"`
+		PriceUSD          decimal.Decimal `json:"price_usd"`
 	}
-	pricingConfig struct {
-		AuraDAS            pricingModel `json:"aura_das"`
-		EclipseDAS         pricingModel `json:"eclipse_das"`
-		EclipseRPC         pricingModel `json:"eclipse_rpc"`
-		SolanaRPC          pricingModel `json:"solana_rpc"`
-		GetProgramAccounts pricingModel `json:"get_program_accounts"`
-		SolanaSWQOS        pricingModel `json:"solana_swqos"`
-		Websocket          pricingModel `json:"websocket"`
+	PricingConfig struct {
+		AuraDAS            PricingModel     `json:"aura_das"`
+		EclipseDAS         PricingModel     `json:"eclipse_das"`
+		EclipseRPC         PricingModel     `json:"eclipse_rpc"`
+		SolanaRPC          PricingModel     `json:"solana_rpc"`
+		GetProgramAccounts PricingModel     `json:"get_program_accounts"`
+		SolanaSWQOS        PricingModel     `json:"solana_swqos"`
+		Websocket          PricingModel     `json:"websocket"`
+		APITokensLimit     uint64           `json:"api_tokens_limit"`
+		MonthlyPriceMPLX   *decimal.Decimal `json:"monthly_price_mplx"`
 	}
-	pricingPlans struct {
-		Free      pricingConfig `json:"free"`
-		Developer pricingConfig `json:"developer"`
+	PricingPlans struct {
+		Free      PricingConfig `json:"free"`
+		Developer PricingConfig `json:"developer"`
+		Advanced  PricingConfig `json:"advanced"`
+		Pro       PricingConfig `json:"pro"`
 	}
 )
 
@@ -75,7 +79,7 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	consulKV   *consulAPI.KV
 
 	availableNetworks map[string]int64
-	pricing           pricingPlans
+	pricing           PricingPlans
 }
 
 const (
@@ -128,9 +132,9 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return a, fmt.Errorf("consulKV.Get: %s", err)
 	}
-	var pricing pricingPlans
+	var pricing PricingPlans
 	if err = json.Unmarshal(pair.Value, &pricing); err != nil {
-		return a, fmt.Errorf("pricingConfig: json.Unmarshal: %s", err)
+		return a, fmt.Errorf("PricingConfig: json.Unmarshal: %s", err)
 	}
 
 	a = &api{

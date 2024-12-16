@@ -8,12 +8,20 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+)
+
+const (
+	freeSubcriptionPlanName      = "Free"
+	developerSubcriptionPlanName = "Developer"
+	advancedSubcriptionPlanName  = "Advanced"
+	proSubcriptionPlanName       = "Pro"
 )
 
 var (
@@ -52,10 +60,17 @@ type (
 
 type (
 	User struct {
-		MplxBalance  int64                 `pg:"usr_mplx_balance" json:"mplx_balance"`
-		DynamicID    string                `pg:"usr_dynamic_id" json:"dynamic_id"`
-		CreatedAt    time.Time             `pg:"usr_created_at" json:"created_at"`
-		Subscription postgres.Subscription `json:"subscription"`
+		MplxBalance  int64         `pg:"usr_mplx_balance" json:"mplx_balance"`
+		DynamicID    string        `pg:"usr_dynamic_id" json:"dynamic_id"`
+		CreatedAt    time.Time     `pg:"usr_created_at" json:"created_at"`
+		Subscription postgres.Plan `json:"subscription"`
+	}
+	SubscriptionWithPricing struct {
+		Name              string        `json:"name"`
+		RequestsPerSecond int64         `json:"requests_per_second"`
+		TokenLimit        int64         `json:"token_limit"`
+		Priority          int64         `json:"priority"`
+		Pricing           PricingConfig `json:"pricing"`
 	}
 )
 
@@ -88,11 +103,11 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (u *User) FromDBModel(user *postgres.UserWithSubscription) {
+func (u *User) FromDBModel(user *postgres.UserWithCurrentPlan) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
-	u.Subscription = user.Subscription
+	u.Subscription = user.Plan
 }
 
 func (s *StatsRequestParams) Bind(c echo.Context, availableNetworks map[string]int64) (err error) {
@@ -150,4 +165,33 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 	}
 
 	return time.Now().UTC().Add(-timeframeDuration), nil
+}
+
+func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []SubscriptionWithPricing {
+	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
+	for _, s := range subscriptions {
+		subscriptionWithPricing := SubscriptionWithPricing{
+			Name:              s.Name,
+			RequestsPerSecond: s.RequestsPerSecond,
+			TokenLimit:        s.TokenLimit,
+			Priority:          s.Priority,
+		}
+		switch s.Name {
+		case freeSubcriptionPlanName:
+			subscriptionWithPricing.Pricing = a.pricing.Free
+		case developerSubcriptionPlanName:
+			subscriptionWithPricing.Pricing = a.pricing.Developer
+		case advancedSubcriptionPlanName:
+			subscriptionWithPricing.Pricing = a.pricing.Advanced
+		case proSubcriptionPlanName:
+			subscriptionWithPricing.Pricing = a.pricing.Pro
+		default:
+			log.Logger.API.Errorf("invalid subscription name: %s", s.Name)
+		}
+		if subscriptionWithPricing.Pricing.APITokensLimit != 0 {
+			result = append(result, subscriptionWithPricing)
+		}
+	}
+
+	return result
 }

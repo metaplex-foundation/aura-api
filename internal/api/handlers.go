@@ -13,10 +13,14 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
-const metaplexTokenDecimals = 6
+const (
+	metaplexTokenDecimals = 6
+	basicAPIKeyName       = "Basic API key"
+)
 
 const (
 	showDeletedAPIKeysParam = "show_deleted"
@@ -45,12 +49,7 @@ var (
 //	@Failure		500	{object}	error
 //	@Router			/networks [get]
 func (a *api) getSupportedNetworksHandler(c echo.Context) (err error) {
-	networks := make([]string, 0, len(a.availableNetworks))
-	for network := range a.availableNetworks {
-		networks = append(networks, network)
-	}
-
-	return c.JSON(http.StatusOK, networks)
+	return c.JSON(http.StatusOK, util.MapKeys(a.availableNetworks))
 }
 
 // getUserHandler godoc
@@ -232,6 +231,14 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 	if err != nil {
 		log.Logger.API.Errorf("apiKeysHandler: GetAPIKeysByUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	if len(apiKeys) == 0 {
+		apiKey, err := a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, basicAPIKeyName, util.MapValues(a.availableNetworks))
+		if err != nil {
+			log.Logger.API.Errorf("apiKeysHandler: CreateAPIKey: %s", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		apiKeys = append(apiKeys, apiKey)
 	}
 	// TODO: remove
 	for i := range apiKeys {
@@ -452,4 +459,31 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusOK, creditsUsageHistory)
+}
+
+// getSubscriptionPlans godoc
+//
+//	@Summary		Get user credits usage
+//	@Description	Get user credits usage
+//	@Tags			stats
+//	@Produce		json
+//	@Param			granularity	query		string	true	"Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)"
+//	@Param			timeframe	query		string	true	"Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]"
+//	@Param			token		query		string	false	"User api token"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
+//	@Param			network		query		string	false	"Network where requests were executed"
+//	@Param			method		query		string	false	"RPC method. If indicated, require paas network parameter too"
+//	@Success		200			{array}		clickhouse.CreditsUsageHistory
+//	@Failure		400			{object}	error
+//	@Failure		401			{object}	error
+//	@Failure		500			{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/stats/credits/usage [get]
+func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
+	subscriptionsList, err := a.pgStorage.GetSubscriptionsList(c.Request().Context())
+	if err != nil {
+		log.Logger.API.Errorf("GetCreditsUsageHistory: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
 }
