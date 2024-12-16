@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -36,9 +37,14 @@ func textResp(c echo.Context, res []byte) error {
 	return err
 }
 
-func (a *api) listenConsul() {
-	var lastIndex uint64 = 0
+func (a *api) listenConsul(ctx context.Context) {
+	var lastIndex uint64
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		queryOpts := &consulAPI.QueryOptions{
 			WaitIndex: lastIndex,
 			WaitTime:  time.Minute,
@@ -50,7 +56,7 @@ func (a *api) listenConsul() {
 		}
 
 		if pair != nil && meta.LastIndex > lastIndex {
-			var pricing pricingConfig
+			var pricing pricingPlans
 			if err = json.Unmarshal(pair.Value, &pricing); err != nil {
 				log.Logger.API.Errorf("listenConsul: json.Unmarshal: %s", err)
 				continue

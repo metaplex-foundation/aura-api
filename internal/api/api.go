@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	//nolint:goimports
 	"google.golang.org/grpc"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/adm-metaex/aura-api/internal/api/config"
 	"github.com/adm-metaex/aura-api/internal/api/docs"
 	_ "github.com/adm-metaex/aura-api/internal/api/docs"
@@ -34,12 +37,25 @@ import (
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
-type pricingConfig struct {
-	AuraRPC struct {
-		Rpc   int     `json:"rpc"`
-		Price float64 `json:"price"`
-	} `json:"auraRPC"`
-}
+type (
+	pricingModel struct {
+		Rpc      int             `json:"rpc"`
+		PriceUSD decimal.Decimal `json:"price_usd"`
+	}
+	pricingConfig struct {
+		AuraDAS            pricingModel `json:"aura_das"`
+		EclipseDAS         pricingModel `json:"eclipse_das"`
+		EclipseRPC         pricingModel `json:"eclipse_rpc"`
+		SolanaRPC          pricingModel `json:"solana_rpc"`
+		GetProgramAccounts pricingModel `json:"get_program_accounts"`
+		SolanaSWQOS        pricingModel `json:"solana_swqos"`
+		Websocket          pricingModel `json:"websocket"`
+	}
+	pricingPlans struct {
+		Free      pricingConfig `json:"free"`
+		Developer pricingConfig `json:"developer"`
+	}
+)
 
 type api struct { //nolint:govet // aligned to 176 bytes
 	conf         configtypes.APIConfig
@@ -59,7 +75,7 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	consulKV   *consulAPI.KV
 
 	availableNetworks map[string]int64
-	pricing           pricingConfig
+	pricing           pricingPlans
 }
 
 const (
@@ -103,12 +119,20 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return a, fmt.Errorf("GetAvailableNetworks: %s", err)
 	}
-	consulConfig := consulAPI.DefaultConfig()
-	consulClient, err := consulAPI.NewClient(consulConfig)
+	consulClient, err := consulAPI.NewClient(consulAPI.DefaultConfig())
 	if err != nil {
 		return a, fmt.Errorf("consulAPI.NewClient: %s", err)
 	}
 	consulKV := consulClient.KV()
+	pair, _, err := consulKV.Get(consulPricingPath, nil)
+	if err != nil {
+		return a, fmt.Errorf("consulKV.Get: %s", err)
+	}
+	var pricing pricingPlans
+	if err = json.Unmarshal(pair.Value, &pricing); err != nil {
+		return a, fmt.Errorf("pricingConfig: json.Unmarshal: %s", err)
+	}
+
 	a = &api{
 		conf:         cfg.API,
 		router:       initAPIServer(),
@@ -126,6 +150,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		emailSender:       emailSender,
 		availableNetworks: availableNetworks,
 		consulKV:          consulKV,
+		pricing:           pricing,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -158,7 +183,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
 	}
 	go chStorage.RunStatsAggregator(ctx)
-	go a.listenConsul()
+	go a.listenConsul(ctx)
 
 	return a, nil
 }
