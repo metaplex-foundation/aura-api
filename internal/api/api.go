@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
@@ -33,6 +34,13 @@ import (
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
+type pricingConfig struct {
+	AuraRPC struct {
+		Rpc   int     `json:"rpc"`
+		Price float64 `json:"price"`
+	} `json:"auraRPC"`
+}
+
 type api struct { //nolint:govet // aligned to 176 bytes
 	conf         configtypes.APIConfig
 	certData     []byte
@@ -48,8 +56,10 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	emailSender email.Sender
 
 	grpcServer *grpc.Server
+	consulKV   *consulAPI.KV
 
 	availableNetworks map[string]int64
+	pricing           pricingConfig
 }
 
 const (
@@ -93,6 +103,12 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return a, fmt.Errorf("GetAvailableNetworks: %s", err)
 	}
+	consulConfig := consulAPI.DefaultConfig()
+	consulClient, err := consulAPI.NewClient(consulConfig)
+	if err != nil {
+		return a, fmt.Errorf("consulAPI.NewClient: %s", err)
+	}
+	consulKV := consulClient.KV()
 	a = &api{
 		conf:         cfg.API,
 		router:       initAPIServer(),
@@ -109,6 +125,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 
 		emailSender:       emailSender,
 		availableNetworks: availableNetworks,
+		consulKV:          consulKV,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -141,6 +158,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
 	}
 	go chStorage.RunStatsAggregator(ctx)
+	go a.listenConsul()
 
 	return a, nil
 }
