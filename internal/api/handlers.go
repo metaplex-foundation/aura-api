@@ -13,10 +13,14 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
-const metaplexTokenDecimals = 6
+const (
+	metaplexTokenDecimals = 6
+	basicAPIKeyName       = "Basic API key"
+)
 
 const (
 	showDeletedAPIKeysParam = "show_deleted"
@@ -45,12 +49,7 @@ var (
 //	@Failure		500	{object}	error
 //	@Router			/networks [get]
 func (a *api) getSupportedNetworksHandler(c echo.Context) (err error) {
-	networks := make([]string, 0, len(a.availableNetworks))
-	for network := range a.availableNetworks {
-		networks = append(networks, network)
-	}
-
-	return c.JSON(http.StatusOK, networks)
+	return c.JSON(http.StatusOK, util.MapKeys(a.availableNetworks))
 }
 
 // getUserHandler godoc
@@ -80,10 +79,8 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getUserHandler: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	var userModel User
-	userModel.FromDBModel(&u)
 
-	return c.JSON(http.StatusOK, userModel)
+	return c.JSON(http.StatusOK, a.UserWithCurrentPlanFromDBModel(&u))
 }
 
 // createAPIKeyHandler godoc
@@ -232,6 +229,14 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 	if err != nil {
 		log.Logger.API.Errorf("apiKeysHandler: GetAPIKeysByUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	if len(apiKeys) == 0 {
+		apiKey, err := a.pgStorage.CreateAPIKey(c.Request().Context(), u.ID, basicAPIKeyName, util.MapValues(a.availableNetworks))
+		if err != nil {
+			log.Logger.API.Errorf("apiKeysHandler: CreateAPIKey: %s", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		}
+		apiKeys = append(apiKeys, apiKey)
 	}
 	// TODO: remove
 	for i := range apiKeys {
@@ -452,4 +457,25 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusOK, creditsUsageHistory)
+}
+
+// getSubscriptionPlans godoc
+//
+//	@Summary		Get subscriptions plan info
+//	@Description	Get subscriptions plan info
+//	@Tags			networks
+//	@Produce		json
+//	@Success		200	{array}		SubscriptionWithPricing "If there is no monthly_price_mplx in response - it is Pay As You Go plan and we need to use price_mplx inside each pricing. If monthly_price_mplx present - we need to use it"
+//	@Failure		400	{object}	error
+//	@Failure		401	{object}	error
+//	@Failure		500	{object}	error
+//	@Router			/plans [get]
+func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
+	subscriptionsList, err := a.pgStorage.GetSubscriptionsList(c.Request().Context())
+	if err != nil {
+		log.Logger.API.Errorf("getSubscriptionPlans: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
 }
