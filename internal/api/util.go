@@ -10,6 +10,7 @@ import (
 	"github.com/gocarina/gocsv"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/labstack/echo/v4"
+	"github.com/shopspring/decimal"
 
 	"github.com/adm-metaex/aura-api/pkg/log"
 )
@@ -17,7 +18,10 @@ import (
 const (
 	mimeTextCSV = "text/csv"
 )
-const consulPricingPath = "aura-api/config/pricing"
+const (
+	consulPricingPath   = "aura-api/config/pricing"
+	consulMplxPricePath = "aura-api/config/mplx"
+)
 
 func csvResp(c echo.Context, res interface{}, fileName string) error {
 	c.Response().Header().Set(echo.HeaderContentType, mimeTextCSV)
@@ -38,32 +42,68 @@ func textResp(c echo.Context, res []byte) error {
 }
 
 func (a *api) listenConsul(ctx context.Context) {
-	var lastIndex uint64
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-		queryOpts := &consulAPI.QueryOptions{
-			WaitIndex: lastIndex,
-			WaitTime:  time.Minute,
-		}
-		pair, meta, err := a.consulKV.Get(consulPricingPath, queryOpts)
-		if err != nil {
-			log.Logger.API.Errorf("listenConsul: consulKV.Get: %s", err)
-			continue
-		}
-
-		if pair != nil && meta.LastIndex > lastIndex {
-			var pricing PricingPlans
-			if err = json.Unmarshal(pair.Value, &pricing); err != nil {
-				log.Logger.API.Errorf("listenConsul: json.Unmarshal: %s", err)
+	go func() {
+		var lastIndex uint64
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			queryOpts := &consulAPI.QueryOptions{
+				WaitIndex: lastIndex,
+				WaitTime:  time.Minute,
+			}
+			pair, meta, err := a.consulKV.Get(consulPricingPath, queryOpts)
+			if err != nil {
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulPricingPath, err)
 				continue
 			}
 
-			a.pricing = pricing
-			lastIndex = meta.LastIndex
+			if pair != nil && meta.LastIndex > lastIndex {
+				var pricing PricingPlans
+				if err = json.Unmarshal(pair.Value, &pricing); err != nil {
+					log.Logger.API.Errorf("listenConsul: json.Unmarshal %s: %s", consulPricingPath, err)
+					continue
+				}
+
+				a.pricing = pricing
+				lastIndex = meta.LastIndex
+				log.Logger.API.Infof("New pricing config received: %+v", pricing)
+			}
 		}
-	}
+	}()
+
+	go func() {
+		var lastIndex uint64
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			queryOpts := &consulAPI.QueryOptions{
+				WaitIndex: lastIndex,
+				WaitTime:  time.Minute,
+			}
+			pair, meta, err := a.consulKV.Get(consulMplxPricePath, queryOpts)
+			if err != nil {
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulMplxPricePath, err)
+				continue
+			}
+
+			if pair != nil && meta.LastIndex > lastIndex {
+				price, err := decimal.NewFromString(string(pair.Value))
+				if err != nil {
+					log.Logger.API.Errorf("listenConsul: NewFromString: %s", err)
+					lastIndex = meta.LastIndex
+					continue
+				}
+
+				a.mplxPrice = price
+				lastIndex = meta.LastIndex
+				log.Logger.API.Infof("New MPLX price received: %s", price.String())
+			}
+		}
+	}()
 }

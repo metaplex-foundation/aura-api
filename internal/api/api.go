@@ -79,7 +79,9 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	consulKV   *consulAPI.KV
 
 	availableNetworks map[string]int64
-	pricing           PricingPlans
+
+	pricing   PricingPlans
+	mplxPrice decimal.Decimal
 }
 
 const (
@@ -130,11 +132,19 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	consulKV := consulClient.KV()
 	pair, _, err := consulKV.Get(consulPricingPath, nil)
 	if err != nil {
-		return a, fmt.Errorf("consulKV.Get: %s", err)
+		return a, fmt.Errorf("consulKV.Get %s: %s", consulPricingPath, err)
 	}
 	var pricing PricingPlans
 	if err = json.Unmarshal(pair.Value, &pricing); err != nil {
 		return a, fmt.Errorf("PricingConfig: json.Unmarshal: %s", err)
+	}
+	pair, _, err = consulKV.Get(consulMplxPricePath, nil)
+	if err != nil {
+		return a, fmt.Errorf("consulKV.Get %s: %s", consulMplxPricePath, err)
+	}
+	price, err := decimal.NewFromString(string(pair.Value))
+	if err != nil {
+		return a, fmt.Errorf("NewFromString: %s", err)
 	}
 
 	a = &api{
@@ -155,6 +165,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		availableNetworks: availableNetworks,
 		consulKV:          consulKV,
 		pricing:           pricing,
+		mplxPrice:         price,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -227,6 +238,7 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 
 	// public
 	a.router.GET("/networks", a.getSupportedNetworksHandler)
+	a.router.GET("/plans", a.getSubscriptionPlans)
 	// protected
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)

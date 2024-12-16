@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
@@ -60,17 +61,30 @@ type (
 
 type (
 	User struct {
-		MplxBalance  int64         `pg:"usr_mplx_balance" json:"mplx_balance"`
-		DynamicID    string        `pg:"usr_dynamic_id" json:"dynamic_id"`
-		CreatedAt    time.Time     `pg:"usr_created_at" json:"created_at"`
+		MplxBalance  int64         `json:"mplx_balance"`
+		DynamicID    string        `json:"dynamic_id"`
+		CreatedAt    time.Time     `json:"created_at"`
 		Subscription postgres.Plan `json:"subscription"`
 	}
+	UIPricing struct {
+		RequestsPerSecond int             `json:"requests_per_second"`
+		PriceMPLX         decimal.Decimal `json:"price_mplx"`
+	}
+	Pricing struct {
+		AuraDAS            UIPricing        `json:"aura_das"`
+		EclipseDAS         UIPricing        `json:"eclipse_das"`
+		EclipseRPC         UIPricing        `json:"eclipse_rpc"`
+		SolanaRPC          UIPricing        `json:"solana_rpc"`
+		GetProgramAccounts UIPricing        `json:"get_program_accounts"`
+		SolanaSWQOS        UIPricing        `json:"solana_swqos"`
+		Websocket          UIPricing        `json:"websocket"`
+		APITokensLimit     uint64           `json:"api_tokens_limit"`
+		MonthlyPriceMPLX   *decimal.Decimal `json:"monthly_price_mplx,omitempty"`
+	}
 	SubscriptionWithPricing struct {
-		Name              string        `json:"name"`
-		RequestsPerSecond int64         `json:"requests_per_second"`
-		TokenLimit        int64         `json:"token_limit"`
-		Priority          int64         `json:"priority"`
-		Pricing           PricingConfig `json:"pricing"`
+		Name     string  `json:"name"`
+		Priority int64   `json:"priority"`
+		Pricing  Pricing `json:"pricing"`
 	}
 )
 
@@ -171,20 +185,18 @@ func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []S
 	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
 	for _, s := range subscriptions {
 		subscriptionWithPricing := SubscriptionWithPricing{
-			Name:              s.Name,
-			RequestsPerSecond: s.RequestsPerSecond,
-			TokenLimit:        s.TokenLimit,
-			Priority:          s.Priority,
+			Name:     s.Name,
+			Priority: s.Priority,
 		}
 		switch s.Name {
 		case freeSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.pricing.Free
+			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Free)
 		case developerSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.pricing.Developer
+			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Developer)
 		case advancedSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.pricing.Advanced
+			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Advanced)
 		case proSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.pricing.Pro
+			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Pro)
 		default:
 			log.Logger.API.Errorf("invalid subscription name: %s", s.Name)
 		}
@@ -194,4 +206,25 @@ func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []S
 	}
 
 	return result
+}
+
+func (a *api) ConvertUIPricing(cfg PricingConfig) Pricing {
+	return Pricing{
+		AuraDAS:            a.UiPricingModel(cfg.AuraDAS),
+		EclipseDAS:         a.UiPricingModel(cfg.EclipseDAS),
+		EclipseRPC:         a.UiPricingModel(cfg.EclipseRPC),
+		SolanaRPC:          a.UiPricingModel(cfg.SolanaRPC),
+		GetProgramAccounts: a.UiPricingModel(cfg.GetProgramAccounts),
+		SolanaSWQOS:        a.UiPricingModel(cfg.SolanaSWQOS),
+		Websocket:          a.UiPricingModel(cfg.Websocket),
+		APITokensLimit:     cfg.APITokensLimit,
+		MonthlyPriceMPLX:   cfg.MonthlyPriceMPLX,
+	}
+}
+
+func (a *api) UiPricingModel(model PricingModel) UIPricing {
+	return UIPricing{
+		RequestsPerSecond: model.RequestsPerSecond,
+		PriceMPLX:         model.PriceUSD.Mul(a.mplxPrice),
+	}
 }

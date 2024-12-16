@@ -463,25 +463,19 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 
 // getSubscriptionPlans godoc
 //
-//	@Summary		Get user credits usage
-//	@Description	Get user credits usage
-//	@Tags			stats
+//	@Summary		Get subscriptions plan info
+//	@Description	Get subscriptions plan info
+//	@Tags			networks
 //	@Produce		json
-//	@Param			granularity	query		string	true	"Request granularity (1 candle size). Can be either 1d (1 day) or 1h (1 hour)"
-//	@Param			timeframe	query		string	true	"Request timeframe. Can be one of the following: [1h, 4h, 12h, 1d, 7d, 14d, 30d]"
-//	@Param			token		query		string	false	"User api token"	Format(uuid)	example(98379b6b-dc6a-4d8e-8271-12eed4822afc)
-//	@Param			network		query		string	false	"Network where requests were executed"
-//	@Param			method		query		string	false	"RPC method. If indicated, require paas network parameter too"
-//	@Success		200			{array}		clickhouse.CreditsUsageHistory
-//	@Failure		400			{object}	error
-//	@Failure		401			{object}	error
-//	@Failure		500			{object}	error
-//	@Security		ApiKeyAuth
-//	@Router			/stats/credits/usage [get]
+//	@Success		200	{array}		SubscriptionWithPricing "If there is no monthly_price_mplx in response - it is Pay As You Go plan and we need to use price_mplx inside each pricing. If monthly_price_mplx present - we need to use it"
+//	@Failure		400	{object}	error
+//	@Failure		401	{object}	error
+//	@Failure		500	{object}	error
+//	@Router			/plans [get]
 func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 	subscriptionsList, err := a.pgStorage.GetSubscriptionsList(c.Request().Context())
 	if err != nil {
-		log.Logger.API.Errorf("GetCreditsUsageHistory: %s", err)
+		log.Logger.API.Errorf("getSubscriptionPlans: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 

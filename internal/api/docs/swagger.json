@@ -309,6 +309,41 @@
                 }
             }
         },
+        "/plans": {
+            "get": {
+                "description": "Get subscriptions plan info",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "networks"
+                ],
+                "summary": "Get subscriptions plan info",
+                "responses": {
+                    "200": {
+                        "description": "If there is no monthly_price_mplx in response - it is Pay As You Go plan and we need to use price_mplx inside each pricing. If monthly_price_mplx present - we need to use it",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SubscriptionWithPricing"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/stats/credits/usage": {
             "get": {
                 "security": [
@@ -597,6 +632,63 @@
                 }
             }
         },
+        "api.Pricing": {
+            "type": "object",
+            "properties": {
+                "api_tokens_limit": {
+                    "type": "integer"
+                },
+                "aura_das": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "eclipse_das": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "eclipse_rpc": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "get_program_accounts": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "monthly_price_mplx": {
+                    "type": "number"
+                },
+                "solana_rpc": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "solana_swqos": {
+                    "$ref": "#/definitions/api.UIPricing"
+                },
+                "websocket": {
+                    "$ref": "#/definitions/api.UIPricing"
+                }
+            }
+        },
+        "api.SubscriptionWithPricing": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "pricing": {
+                    "$ref": "#/definitions/api.Pricing"
+                },
+                "priority": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.UIPricing": {
+            "type": "object",
+            "properties": {
+                "price_mplx": {
+                    "type": "number"
+                },
+                "requests_per_second": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.UpdateAPIKeyRequestParams": {
             "type": "object",
             "properties": {
@@ -729,9 +821,6 @@
                     "type": "string"
                 },
                 "priority": {
-                    "type": "integer"
-                },
-                "requests_per_second": {
                     "type": "integer"
                 },
                 "token_limit": {
