@@ -79,10 +79,8 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getUserHandler: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	var userModel User
-	userModel.FromDBModel(&u)
 
-	return c.JSON(http.StatusOK, userModel)
+	return c.JSON(http.StatusOK, a.UserWithCurrentPlanFromDBModel(&u))
 }
 
 // createAPIKeyHandler godoc

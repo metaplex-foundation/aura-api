@@ -61,10 +61,11 @@ type (
 
 type (
 	User struct {
-		MplxBalance  int64         `json:"mplx_balance"`
-		DynamicID    string        `json:"dynamic_id"`
-		CreatedAt    time.Time     `json:"created_at"`
-		Subscription postgres.Plan `json:"subscription"`
+		MplxBalance       int64                   `json:"mplx_balance"`
+		DynamicID         string                  `json:"dynamic_id"`
+		CreatedAt         time.Time               `json:"created_at"`
+		LastUpdatedPlanAt time.Time               `json:"last_updated_plan_at"`
+		Subscription      SubscriptionWithPricing `json:"subscription"`
 	}
 	UIPricing struct {
 		RequestsPerSecond int             `json:"requests_per_second"`
@@ -117,11 +118,13 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (u *User) FromDBModel(user *postgres.UserWithCurrentPlan) {
+func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan) (u User) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
-	u.Subscription = user.Plan
+	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
+	u.Subscription = a.SubscriptionWithPricingFromDBModel(user.Plan)
+	return u
 }
 
 func (s *StatsRequestParams) Bind(c echo.Context, availableNetworks map[string]int64) (err error) {
@@ -181,25 +184,31 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 	return time.Now().UTC().Add(-timeframeDuration), nil
 }
 
+func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) SubscriptionWithPricing {
+	subscriptionWithPricing := SubscriptionWithPricing{
+		Name:     plan.Name,
+		Priority: plan.Priority,
+	}
+	switch plan.Name {
+	case freeSubcriptionPlanName:
+		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Free)
+	case developerSubcriptionPlanName:
+		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Developer)
+	case advancedSubcriptionPlanName:
+		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Advanced)
+	case proSubcriptionPlanName:
+		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Pro)
+	default:
+		log.Logger.API.Errorf("invalid subscription name: %s", plan.Name)
+	}
+
+	return subscriptionWithPricing
+}
+
 func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []SubscriptionWithPricing {
 	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
 	for _, s := range subscriptions {
-		subscriptionWithPricing := SubscriptionWithPricing{
-			Name:     s.Name,
-			Priority: s.Priority,
-		}
-		switch s.Name {
-		case freeSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Free)
-		case developerSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Developer)
-		case advancedSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Advanced)
-		case proSubcriptionPlanName:
-			subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Pro)
-		default:
-			log.Logger.API.Errorf("invalid subscription name: %s", s.Name)
-		}
+		subscriptionWithPricing := a.SubscriptionWithPricingFromDBModel(s)
 		if subscriptionWithPricing.Pricing.APITokensLimit != 0 {
 			result = append(result, subscriptionWithPricing)
 		}

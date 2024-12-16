@@ -70,10 +70,12 @@ definitions:
         type: string
       dynamic_id:
         type: string
+      last_updated_plan_at:
+        type: string
       mplx_balance:
         type: integer
       subscription:
-        $ref: '#/definitions/postgres.Plan'
+        $ref: '#/definitions/api.SubscriptionWithPricing'
     type: object
   clickhouse.CreditsUsageHistory:
     properties:
@@ -131,15 +133,6 @@ definitions:
       token:
         type: string
       total_requests:
-        type: integer
-    type: object
-  postgres.Plan:
-    properties:
-      name:
-        type: string
-      priority:
-        type: integer
-      token_limit:
         type: integer
     type: object
 info:
