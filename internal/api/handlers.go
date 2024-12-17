@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	metaplexTokenDecimals = 6
-	basicAPIKeyName       = "Basic API key"
+	basicAPIKeyName = "Basic API key"
 )
 
 const (
