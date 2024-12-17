@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -218,6 +219,9 @@ func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []S
 			result = append(result, subscriptionWithPricing)
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Priority < result[j].Priority
+	})
 
 	return result
 }
