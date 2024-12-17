@@ -43,15 +43,15 @@ type (
 		PriceUSD          decimal.Decimal `json:"price_usd"`
 	}
 	PricingConfig struct {
-		AuraDAS            PricingModel     `json:"aura_das"`
-		EclipseDAS         PricingModel     `json:"eclipse_das"`
-		EclipseRPC         PricingModel     `json:"eclipse_rpc"`
-		SolanaRPC          PricingModel     `json:"solana_rpc"`
-		GetProgramAccounts PricingModel     `json:"get_program_accounts"`
-		SolanaSWQOS        PricingModel     `json:"solana_swqos"`
-		Websocket          PricingModel     `json:"websocket"`
-		APITokensLimit     uint64           `json:"api_tokens_limit"`
-		MonthlyPriceMPLX   *decimal.Decimal `json:"monthly_price_mplx"`
+		AuraDAS            PricingModel `json:"aura_das"`
+		EclipseDAS         PricingModel `json:"eclipse_das"`
+		EclipseRPC         PricingModel `json:"eclipse_rpc"`
+		SolanaRPC          PricingModel `json:"solana_rpc"`
+		GetProgramAccounts PricingModel `json:"get_program_accounts"`
+		SolanaSWQOS        PricingModel `json:"solana_swqos"`
+		Websocket          PricingModel `json:"websocket"`
+		APITokensLimit     uint64       `json:"api_tokens_limit"`
+		MonthlyPriceMPLX   *int64       `json:"monthly_price_mplx"`
 	}
 	PricingPlans struct {
 		Free      PricingConfig `json:"free"`

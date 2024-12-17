@@ -23,6 +23,8 @@ const (
 	developerSubcriptionPlanName = "Developer"
 	advancedSubcriptionPlanName  = "Advanced"
 	proSubcriptionPlanName       = "Pro"
+
+	metaplexTokenDecimals = 6
 )
 
 var (
@@ -39,6 +41,8 @@ var (
 		"14d": 14 * 24 * time.Hour,
 		"30d": 30 * 24 * time.Hour,
 	}
+
+	metaplexTokenDecimalsMultiplier = decimal.NewFromFloat(10).Pow(decimal.NewFromFloat(metaplexTokenDecimals))
 )
 
 type (
@@ -68,24 +72,24 @@ type (
 		Subscription      SubscriptionWithPricing `json:"subscription"`
 	}
 	UIPricing struct {
-		RequestsPerSecond int             `json:"requests_per_second"`
-		PriceMPLX         decimal.Decimal `json:"price_mplx"`
+		RequestsPerSecond int   `json:"requests_per_second"`
+		PriceMPLX         int64 `json:"price_mplx"`
 	}
 	Pricing struct {
-		AuraDAS            UIPricing        `json:"aura_das"`
-		EclipseDAS         UIPricing        `json:"eclipse_das"`
-		EclipseRPC         UIPricing        `json:"eclipse_rpc"`
-		SolanaRPC          UIPricing        `json:"solana_rpc"`
-		GetProgramAccounts UIPricing        `json:"get_program_accounts"`
-		SolanaSWQOS        UIPricing        `json:"solana_swqos"`
-		Websocket          UIPricing        `json:"websocket"`
-		APITokensLimit     uint64           `json:"api_tokens_limit"`
-		MonthlyPriceMPLX   *decimal.Decimal `json:"monthly_price_mplx,omitempty"`
+		AuraDAS            UIPricing `json:"aura_das"`
+		EclipseDAS         UIPricing `json:"eclipse_das"`
+		EclipseRPC         UIPricing `json:"eclipse_rpc"`
+		SolanaRPC          UIPricing `json:"solana_rpc"`
+		GetProgramAccounts UIPricing `json:"get_program_accounts"`
+		SolanaSWQOS        UIPricing `json:"solana_swqos"`
+		Websocket          UIPricing `json:"websocket"`
+		MonthlyPriceMPLX   *int64    `json:"monthly_price_mplx"`
 	}
 	SubscriptionWithPricing struct {
-		Name     string  `json:"name"`
-		Priority int64   `json:"priority"`
-		Pricing  Pricing `json:"pricing"`
+		Name           string  `json:"name"`
+		Priority       int64   `json:"priority"`
+		APITokensLimit int64   `json:"api_tokens_limit"`
+		Pricing        Pricing `json:"pricing"`
 	}
 )
 
@@ -186,8 +190,9 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 
 func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) SubscriptionWithPricing {
 	subscriptionWithPricing := SubscriptionWithPricing{
-		Name:     plan.Name,
-		Priority: plan.Priority,
+		Name:           plan.Name,
+		Priority:       plan.Priority,
+		APITokensLimit: plan.TokenLimit,
 	}
 	switch plan.Name {
 	case freeSubcriptionPlanName:
@@ -209,7 +214,7 @@ func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []S
 	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
 	for _, s := range subscriptions {
 		subscriptionWithPricing := a.SubscriptionWithPricingFromDBModel(s)
-		if subscriptionWithPricing.Pricing.APITokensLimit != 0 {
+		if subscriptionWithPricing.APITokensLimit != 0 {
 			result = append(result, subscriptionWithPricing)
 		}
 	}
@@ -226,7 +231,6 @@ func (a *api) ConvertUIPricing(cfg PricingConfig) Pricing {
 		GetProgramAccounts: a.UiPricingModel(cfg.GetProgramAccounts),
 		SolanaSWQOS:        a.UiPricingModel(cfg.SolanaSWQOS),
 		Websocket:          a.UiPricingModel(cfg.Websocket),
-		APITokensLimit:     cfg.APITokensLimit,
 		MonthlyPriceMPLX:   cfg.MonthlyPriceMPLX,
 	}
 }
@@ -234,6 +238,6 @@ func (a *api) ConvertUIPricing(cfg PricingConfig) Pricing {
 func (a *api) UiPricingModel(model PricingModel) UIPricing {
 	return UIPricing{
 		RequestsPerSecond: model.RequestsPerSecond,
-		PriceMPLX:         model.PriceUSD.Mul(a.mplxPrice),
+		PriceMPLX:         model.PriceUSD.Div(a.mplxPrice).Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64(),
 	}
 }
