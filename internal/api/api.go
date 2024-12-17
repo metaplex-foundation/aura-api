@@ -52,6 +52,7 @@ type (
 		Websocket          PricingModel `json:"websocket"`
 		APITokensLimit     uint64       `json:"api_tokens_limit"`
 		MonthlyPriceMPLX   *int64       `json:"monthly_price_mplx"`
+		PrioritySupport    bool         `json:"priority_support"`
 	}
 	PricingPlans struct {
 		Free      PricingConfig `json:"free"`

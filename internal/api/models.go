@@ -87,10 +87,11 @@ type (
 		MonthlyPriceMPLX   *int64    `json:"monthly_price_mplx"`
 	}
 	SubscriptionWithPricing struct {
-		Name           string  `json:"name"`
-		Priority       int64   `json:"priority"`
-		APITokensLimit int64   `json:"api_tokens_limit"`
-		Pricing        Pricing `json:"pricing"`
+		Name            string  `json:"name"`
+		Priority        int64   `json:"priority"`
+		APITokensLimit  int64   `json:"api_tokens_limit"`
+		PrioritySupport bool    `json:"priority_support"`
+		Pricing         Pricing `json:"pricing"`
 	}
 )
 
@@ -198,12 +199,16 @@ func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) Subscriptio
 	switch plan.Name {
 	case freeSubcriptionPlanName:
 		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Free)
+		subscriptionWithPricing.PrioritySupport = a.pricing.Free.PrioritySupport
 	case developerSubcriptionPlanName:
 		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Developer)
+		subscriptionWithPricing.PrioritySupport = a.pricing.Developer.PrioritySupport
 	case advancedSubcriptionPlanName:
 		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Advanced)
+		subscriptionWithPricing.PrioritySupport = a.pricing.Advanced.PrioritySupport
 	case proSubcriptionPlanName:
 		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Pro)
+		subscriptionWithPricing.PrioritySupport = a.pricing.Pro.PrioritySupport
 	default:
 		log.Logger.API.Errorf("invalid subscription name: %s", plan.Name)
 	}
