@@ -479,17 +479,50 @@ func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
 }
 
+// getSubscriptionPlans godoc
+//
+//	@Summary		Get subscriptions plan info
+//	@Description	Get subscriptions plan info
+//	@Tags			users
+//	@Produce		json
+//	@Param			request_body	body		UpdateSubscriptionParams	true	"Subscription ID to change plan"
+//	@Success		200				{string}	string						"Subscription was changed successfully. Return empty string"
+//	@Failure		400				{object}	error						"Subscription changes are allowed only once every 24 hours."
+//	@Failure		400				{object}	error						"Insufficient balance to change subscription."
+//	@Failure		400				{object}	error						"Cannot switch to the selected subscription."
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/plan [patch]
 func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
-		log.Logger.API.Errorf("getAPICreditsUsage: fail to get user from context: %v", user)
+		log.Logger.API.Errorf("updateSubscriptionPlan: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	subscriptionsList, err := a.pgStorage.GetSubscriptionsList(c.Request().Context())
+	var params UpdateSubscriptionParams
+	if err = c.Bind(&params); err != nil {
+		return err
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
 	if err != nil {
-		log.Logger.API.Errorf("getSubscriptionPlans: %s", err)
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	err = a.pgStorage.UpdateUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID)
+	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
+	}
+	if postgres.IsErrInvalidSubscriptionID(err) {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
+	}
+	if err != nil {
+		log.Logger.API.Errorf("updateSubscriptionPlan: UpdateUserSubscriptionPlan: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
+	return c.NoContent(http.StatusOK)
 }

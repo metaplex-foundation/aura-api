@@ -5,6 +5,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS usr_sbs_ends_on TIMESTAMP;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS sbs_price_mplx integer not null default 0;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS sbs_period_days integer not null default 0;
 
+UPDATE subscriptions SET sbs_price_mplx = 500000000 WHERE sbs_priority = 2;
+UPDATE subscriptions SET sbs_price_mplx = 1500000000 WHERE sbs_priority = 3;
+UPDATE subscriptions SET sbs_period_days = 30 WHERE sbs_priority = 2;
+UPDATE subscriptions SET sbs_period_days = 30 WHERE sbs_priority = 3;
+
 CREATE OR REPLACE FUNCTION check_and_update_subscription()
     RETURNS TRIGGER AS
 $$
@@ -28,7 +33,7 @@ BEGIN
         WHERE sbs_id = OLD.sbs_id;
 
         -- Ensure the subscription is not changed more than once every 24 hours
-        IF OLD.usr_last_updated_plan_at IS NULL OR old_subscription_priority == 0 OR (NOW() - OLD.usr_last_updated_plan_at) < INTERVAL '24 hours' THEN
+        IF (OLD.usr_last_updated_plan_at IS NOT NULL AND old_subscription_priority != 0) OR (NOW() - OLD.usr_last_updated_plan_at) < INTERVAL '24 hours' THEN
             RAISE EXCEPTION 'Subscription changes are allowed only once every 24 hours.';
         END IF;
 
@@ -69,7 +74,7 @@ END;
 $$
     LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_check_and_update_subscription
+CREATE OR REPLACE TRIGGER trg_check_and_update_subscription
     BEFORE UPDATE OF sbs_id ON users
     FOR EACH ROW
     EXECUTE FUNCTION check_and_update_subscription();

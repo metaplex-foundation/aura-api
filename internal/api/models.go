@@ -62,6 +62,9 @@ type (
 		Network     *string
 		RPCMethod   *string
 	}
+	UpdateSubscriptionParams struct {
+		SubscriptionID int64 `json:"subscription_id"`
+	}
 )
 
 type (
