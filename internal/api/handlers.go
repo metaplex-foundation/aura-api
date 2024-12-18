@@ -478,3 +478,18 @@ func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 
 	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
 }
+
+func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("getAPICreditsUsage: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	subscriptionsList, err := a.pgStorage.GetSubscriptionsList(c.Request().Context())
+	if err != nil {
+		log.Logger.API.Errorf("getSubscriptionPlans: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
+}

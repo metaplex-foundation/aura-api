@@ -87,6 +87,7 @@ type (
 		MonthlyPriceMPLX   *int64    `json:"monthly_price_mplx"`
 	}
 	SubscriptionWithPricing struct {
+		ID              int64   `json:"id"`
 		Name            string  `json:"name"`
 		Priority        int64   `json:"priority"`
 		APITokensLimit  int64   `json:"api_tokens_limit"`
@@ -192,6 +193,7 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 
 func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) SubscriptionWithPricing {
 	subscriptionWithPricing := SubscriptionWithPricing{
+		ID:             plan.PlanID,
 		Name:           plan.Name,
 		Priority:       plan.Priority,
 		APITokensLimit: plan.TokenLimit,
