@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-pg/migrations/v8"
@@ -26,7 +27,10 @@ var (
 )
 
 const (
-	APIKeysLimitReachedErrorText = "API keys limit reached"
+	APIKeysLimitReachedErrorText         = "API keys limit reached"
+	SubscriptionsChangeCooldawnErrorText = "Subscription changes are allowed only once every 24 hours."
+	InsufficientBalanceErrorText         = "Insufficient balance to change subscription."
+	CannotSwitchSubscriptionErrorText    = "Cannot switch to the selected subscription."
 )
 
 func New(ctx context.Context, cfg configtypes.PostgresConfig) (s Storage, err error) { //nolint:gocritic
@@ -125,4 +129,22 @@ func IsErrViolateConstraint(err error) bool {
 func IsErrAPIKeysLimitReached(err error) bool {
 	var pgErr pg.Error
 	return errors.As(err, &pgErr) && pgErr.Field(77) == APIKeysLimitReachedErrorText //nolint:revive
+}
+
+func IsErrInvalidSubscriptionID(err error) bool {
+	var pgErr pg.Error
+	return errors.As(err, &pgErr) && pgErr.IntegrityViolation() && strings.Contains(pgErr.Error(), "users_sbs_id_fkey")
+}
+
+func UpdateSubscriptionErrorMessage(err error) *string {
+	var pgErr pg.Error
+	if !errors.As(err, &pgErr) {
+		return nil
+	}
+	errorMessage := pgErr.Field(77)
+	if errorMessage == InsufficientBalanceErrorText || errorMessage == SubscriptionsChangeCooldawnErrorText || errorMessage == CannotSwitchSubscriptionErrorText {
+		return &errorMessage
+	}
+
+	return nil
 }

@@ -16,8 +16,6 @@ definitions:
     type: object
   api.Pricing:
     properties:
-      api_tokens_limit:
-        type: integer
       aura_das:
         $ref: '#/definitions/api.UIPricing'
       eclipse_das:
@@ -27,7 +25,7 @@ definitions:
       get_program_accounts:
         $ref: '#/definitions/api.UIPricing'
       monthly_price_mplx:
-        type: number
+        type: integer
       solana_rpc:
         $ref: '#/definitions/api.UIPricing'
       solana_swqos:
@@ -37,17 +35,23 @@ definitions:
     type: object
   api.SubscriptionWithPricing:
     properties:
+      api_tokens_limit:
+        type: integer
+      id:
+        type: integer
       name:
         type: string
       pricing:
         $ref: '#/definitions/api.Pricing'
       priority:
         type: integer
+      priority_support:
+        type: boolean
     type: object
   api.UIPricing:
     properties:
       price_mplx:
-        type: number
+        type: integer
       requests_per_second:
         type: integer
     type: object
@@ -63,6 +67,11 @@ definitions:
           - ' Solana'
           type: string
         type: array
+    type: object
+  api.UpdateSubscriptionParams:
+    properties:
+      subscription_id:
+        type: integer
     type: object
   api.User:
     properties:
@@ -340,6 +349,37 @@ paths:
       summary: Get list of supported networks
       tags:
       - networks
+  /plan:
+    patch:
+      description: Get subscriptions plan info
+      parameters:
+      - description: Subscription ID to change plan
+        in: body
+        name: request_body
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateSubscriptionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription was changed successfully. Return empty string
+          schema:
+            type: string
+        "400":
+          description: Cannot switch to the selected subscription.
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get subscriptions plan info
+      tags:
+      - users
   /plans:
     get:
       description: Get subscriptions plan info
