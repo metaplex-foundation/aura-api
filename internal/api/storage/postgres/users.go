@@ -89,3 +89,13 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurr
 
 	return u, nil
 }
+
+func (s *Storage) UpdateUserSubscriptionPlan(ctx context.Context, usrID int64, subscriptionID int64) (err error) {
+	query := `UPDATE users SET sbs_id = ? WHERE usr_id = ?;`
+	_, err = s.db.ExecOneContext(ctx, query, subscriptionID, usrID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

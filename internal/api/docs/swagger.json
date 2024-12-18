@@ -309,6 +309,54 @@
                 }
             }
         },
+        "/plan": {
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get subscriptions plan info",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get subscriptions plan info",
+                "parameters": [
+                    {
+                        "description": "Subscription ID to change plan",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateSubscriptionParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Subscription was changed successfully. Return empty string",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Cannot switch to the selected subscription.",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/plans": {
             "get": {
                 "description": "Get subscriptions plan info",
@@ -635,9 +683,6 @@
         "api.Pricing": {
             "type": "object",
             "properties": {
-                "api_tokens_limit": {
-                    "type": "integer"
-                },
                 "aura_das": {
                     "$ref": "#/definitions/api.UIPricing"
                 },
@@ -651,7 +696,7 @@
                     "$ref": "#/definitions/api.UIPricing"
                 },
                 "monthly_price_mplx": {
-                    "type": "number"
+                    "type": "integer"
                 },
                 "solana_rpc": {
                     "$ref": "#/definitions/api.UIPricing"
@@ -667,6 +712,12 @@
         "api.SubscriptionWithPricing": {
             "type": "object",
             "properties": {
+                "api_tokens_limit": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -675,6 +726,9 @@
                 },
                 "priority": {
                     "type": "integer"
+                },
+                "priority_support": {
+                    "type": "boolean"
                 }
             }
         },
@@ -682,7 +736,7 @@
             "type": "object",
             "properties": {
                 "price_mplx": {
-                    "type": "number"
+                    "type": "integer"
                 },
                 "requests_per_second": {
                     "type": "integer"
@@ -705,6 +759,14 @@
                             " Solana"
                         ]
                     }
+                }
+            }
+        },
+        "api.UpdateSubscriptionParams": {
+            "type": "object",
+            "properties": {
+                "subscription_id": {
+                    "type": "integer"
                 }
             }
         },

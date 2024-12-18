@@ -244,6 +244,7 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)
 	protectedGroup.GET("/user", a.getUserHandler)
+	protectedGroup.PATCH("/plan", a.updateSubscriptionPlan)
 	// API keys
 	apiKeysGroup := protectedGroup.Group("/keys")
 	apiKeysGroup.GET("", a.apiKeysHandler)
