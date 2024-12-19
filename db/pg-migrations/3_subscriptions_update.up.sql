@@ -36,14 +36,13 @@ BEGIN
         IF (OLD.usr_last_updated_plan_at IS NOT NULL AND old_subscription_priority != 0) OR (NOW() - OLD.usr_last_updated_plan_at) < INTERVAL '24 hours' THEN
             RAISE EXCEPTION 'Subscription changes are allowed only once every 24 hours.';
         END IF;
+        -- Check if the user has sufficient balance
+        IF OLD.usr_mplx_balance <= 0 OR OLD.usr_mplx_balance < new_subscription_price THEN
+            RAISE EXCEPTION 'Insufficient balance to change subscription.';
+        END IF;
 
         -- Condition 1: Allow switching to a subscription with a higher priority
         IF new_subscription_priority > old_subscription_priority THEN
-             -- Check if the user has sufficient balance
-            IF OLD.usr_mplx_balance <= 0 OR OLD.usr_mplx_balance < new_subscription_price THEN
-                RAISE EXCEPTION 'Insufficient balance to change subscription.';
-            END IF;
-
             -- Deduct the subscription price from the user's balance and update the expiration date
             NEW.usr_mplx_balance := OLD.usr_mplx_balance - new_subscription_price;
             IF new_subscription_period > 0 THEN
