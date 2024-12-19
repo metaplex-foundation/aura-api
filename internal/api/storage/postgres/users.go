@@ -11,11 +11,12 @@ import (
 
 type (
 	User struct {
-		ID                int64     `pg:"usr_id" json:"id"`
-		MplxBalance       int64     `pg:"usr_mplx_balance" json:"mplx_balance"`
-		DynamicID         string    `pg:"usr_dynamic_id" json:"dynamic_id"`
-		CreatedAt         time.Time `pg:"usr_created_at" json:"created_at"`
-		LastUpdatedPlanAt time.Time `pg:"usr_last_updated_plan_at" json:"last_updated_plan_at"`
+		ID                 int64     `pg:"usr_id" json:"id"`
+		MplxBalance        int64     `pg:"usr_mplx_balance" json:"mplx_balance"`
+		DynamicID          string    `pg:"usr_dynamic_id" json:"dynamic_id"`
+		CreatedAt          time.Time `pg:"usr_created_at" json:"created_at"`
+		LastUpdatedPlanAt  time.Time `pg:"usr_last_updated_plan_at" json:"last_updated_plan_at"`
+		SubscriptionEndsOn time.Time `pg:"usr_sbs_ends_on" json:"usr_sbs_ends_on"`
 	}
 	UserWithCurrentPlan struct {
 		User
