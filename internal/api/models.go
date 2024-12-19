@@ -69,11 +69,12 @@ type (
 
 type (
 	User struct {
-		MplxBalance       int64                   `json:"mplx_balance"`
-		DynamicID         string                  `json:"dynamic_id"`
-		CreatedAt         time.Time               `json:"created_at"`
-		LastUpdatedPlanAt time.Time               `json:"last_updated_plan_at"`
-		Subscription      SubscriptionWithPricing `json:"subscription"`
+		MplxBalance        int64                   `json:"mplx_balance"`
+		DynamicID          string                  `json:"dynamic_id"`
+		CreatedAt          time.Time               `json:"created_at"`
+		LastUpdatedPlanAt  time.Time               `json:"last_updated_plan_at"`
+		SubscriptionEndsOn time.Time               `json:"subscription_ends_on"`
+		Subscription       SubscriptionWithPricing `json:"subscription"`
 	}
 	UIPricing struct {
 		RequestsPerSecond int   `json:"requests_per_second"`
@@ -133,6 +134,7 @@ func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan)
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
 	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
+	u.SubscriptionEndsOn = user.User.SubscriptionEndsOn
 	u.Subscription = a.SubscriptionWithPricingFromDBModel(user.Plan)
 	return u
 }
