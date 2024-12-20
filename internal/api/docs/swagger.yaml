@@ -85,6 +85,8 @@ definitions:
         type: integer
       subscription:
         $ref: '#/definitions/api.SubscriptionWithPricing'
+      subscription_ends_on:
+        type: string
     type: object
   clickhouse.CreditsUsageHistory:
     properties:
@@ -349,6 +351,43 @@ paths:
       summary: Get list of supported networks
       tags:
       - networks
+  /payments/link:
+    get:
+      description: Get payment link
+      parameters:
+      - description: 'The value must be a non-negative integer or decimal number of '
+        in: query
+        name: amount
+        required: true
+        type: string
+      - description: Name of subscription plan
+        in: query
+        name: payment_type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment link
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get payment link
+      tags:
+      - payment
   /plan:
     patch:
       description: Get subscriptions plan info
