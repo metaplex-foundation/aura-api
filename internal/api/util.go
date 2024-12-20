@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/gocarina/gocsv"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/labstack/echo/v4"
@@ -19,8 +20,9 @@ const (
 	mimeTextCSV = "text/csv"
 )
 const (
-	consulPricingPath   = "config/aura-api/pricing"
-	consulMplxPricePath = "config/aura-api/mplx"
+	consulPricingPath           = "config/aura-api/pricing"
+	consulMplxPricePath         = "config/aura-api/mplx"
+	consulPaymentsRecipientPath = "config/aura-api/payments/recipient"
 )
 
 func csvResp(c echo.Context, res interface{}, fileName string) error {
@@ -103,6 +105,39 @@ func (a *api) listenConsul(ctx context.Context) {
 				a.mplxPrice = price
 				lastIndex = meta.LastIndex
 				log.Logger.API.Infof("New MPLX price received: %s", price.String())
+			}
+		}
+	}()
+
+	go func() {
+		var lastIndex uint64
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			queryOpts := &consulAPI.QueryOptions{
+				WaitIndex: lastIndex,
+				WaitTime:  time.Minute,
+			}
+			pair, meta, err := a.consulKV.Get(consulPaymentsRecipientPath, queryOpts)
+			if err != nil {
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulPaymentsRecipientPath, err)
+				continue
+			}
+
+			if pair != nil && meta.LastIndex > lastIndex {
+				newRecipient, err := solana.PublicKeyFromBase58(string(pair.Value))
+				if err != nil {
+					log.Logger.API.Errorf("listenConsul: PublicKeyFromBase58: %s", err)
+					lastIndex = meta.LastIndex
+					continue
+				}
+
+				a.paymentRecepient = newRecipient
+				lastIndex = meta.LastIndex
+				log.Logger.API.Infof("New payment recipient received: %s", newRecipient.String())
 			}
 		}
 	}()

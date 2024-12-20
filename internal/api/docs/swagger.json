@@ -309,6 +309,62 @@
                 }
             }
         },
+        "/payments/link": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get payment link",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Get payment link",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The value must be a non-negative integer or decimal number of ",
+                        "name": "amount",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of subscription plan",
+                        "name": "payment_type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment link",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/plan": {
             "patch": {
                 "security": [
@@ -787,6 +843,9 @@
                 },
                 "subscription": {
                     "$ref": "#/definitions/api.SubscriptionWithPricing"
+                },
+                "subscription_ends_on": {
+                    "type": "string"
                 }
             }
         },
