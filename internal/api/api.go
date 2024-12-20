@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/labstack/echo/v4"
@@ -81,8 +82,9 @@ type api struct { //nolint:govet // aligned to 176 bytes
 
 	availableNetworks map[string]int64
 
-	pricing   PricingPlans
-	mplxPrice decimal.Decimal
+	pricing          PricingPlans
+	mplxPrice        decimal.Decimal
+	paymentRecepient solana.PublicKey
 }
 
 const (
@@ -147,6 +149,17 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return a, fmt.Errorf("NewFromString: %s", err)
 	}
+	pair, _, err = consulKV.Get(consulPaymentsRecipientPath, nil)
+	if err != nil {
+		return a, fmt.Errorf("consulKV.Get %s: %s", consulPaymentsRecipientPath, err)
+	}
+	if len(pair.Value) == 0 {
+		return a, fmt.Errorf("empty value for key: %s", consulPaymentsRecipientPath)
+	}
+	paymentRecepient, err := solana.PublicKeyFromBase58(string(pair.Value))
+	if err != nil {
+		return a, fmt.Errorf("listenConsul: PublicKeyFromBase58: %s", err)
+	}
 
 	a = &api{
 		conf:         cfg.API,
@@ -167,6 +180,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		consulKV:          consulKV,
 		pricing:           pricing,
 		mplxPrice:         price,
+		paymentRecepient:  paymentRecepient,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -257,6 +271,9 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	statsGroup.GET("/response/time", a.getAPIResponseTimes)
 	statsGroup.GET("/request/volume", a.getAPIRequestsVolume)
 	statsGroup.GET("/credits/usage", a.getAPICreditsUsage)
+	// Payments
+	paymentGroup := protectedGroup.Group("/payments")
+	paymentGroup.GET("/link", a.getPaymentLink)
 }
 
 func (a *api) Run() (err error) {
