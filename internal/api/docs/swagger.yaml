@@ -14,6 +14,11 @@ definitions:
           type: string
         type: array
     type: object
+  api.PaymentStatusResponse:
+    properties:
+      is_paid:
+        type: boolean
+    type: object
   api.Pricing:
     properties:
       aura_das:
@@ -355,7 +360,8 @@ paths:
     get:
       description: Get payment link
       parameters:
-      - description: 'The value must be a non-negative integer or decimal number of '
+      - description: The value must be a non-negative integer or decimal number of
+          user units. For SOL, that's SOL and not lamports.
         in: query
         name: amount
         required: true
@@ -374,6 +380,36 @@ paths:
             items:
               type: string
             type: array
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get payment link
+      tags:
+      - payment
+  /payments/status:
+    get:
+      description: Get payment link
+      parameters:
+      - description: Reference address
+        in: query
+        name: reference
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment status
+          schema:
+            $ref: '#/definitions/api.PaymentStatusResponse'
         "400":
           description: Bad Request
           schema: {}

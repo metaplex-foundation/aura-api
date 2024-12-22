@@ -327,7 +327,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The value must be a non-negative integer or decimal number of ",
+                        "description": "The value must be a non-negative integer or decimal number of user units. For SOL, that's SOL and not lamports.",
                         "name": "amount",
                         "in": "query",
                         "required": true
@@ -348,6 +348,52 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/payments/status": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get payment link",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Get payment link",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Reference address",
+                        "name": "reference",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment status",
+                        "schema": {
+                            "$ref": "#/definitions/api.PaymentStatusResponse"
                         }
                     },
                     "400": {
@@ -733,6 +779,14 @@
                             " Solana"
                         ]
                     }
+                }
+            }
+        },
+        "api.PaymentStatusResponse": {
+            "type": "object",
+            "properties": {
+                "is_paid": {
+                    "type": "boolean"
                 }
             }
         },

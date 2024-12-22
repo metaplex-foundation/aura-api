@@ -47,6 +47,12 @@ var (
 )
 
 type (
+	PaymentStatusResponse struct {
+		IsPaid bool `json:"is_paid"`
+	}
+)
+
+type (
 	CreateAPIKeyRequestParams struct {
 		Name     string   `json:"name"`
 		Networks []string `json:"networks" enums:"Aura, Solana"`

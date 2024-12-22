@@ -135,7 +135,7 @@ func (a *api) listenConsul(ctx context.Context) {
 					continue
 				}
 
-				a.paymentRecepient = newRecipient
+				a.paymentRecipient = newRecipient
 				lastIndex = meta.LastIndex
 				log.Logger.API.Infof("New payment recipient received: %s", newRecipient.String())
 			}

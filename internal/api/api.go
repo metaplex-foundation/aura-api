@@ -84,7 +84,8 @@ type api struct { //nolint:govet // aligned to 176 bytes
 
 	pricing          PricingPlans
 	mplxPrice        decimal.Decimal
-	paymentRecepient solana.PublicKey
+	paymentRecipient solana.PublicKey
+	paymentWatcher   paymentsWatcher
 }
 
 const (
@@ -158,7 +159,11 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	}
 	paymentRecepient, err := solana.PublicKeyFromBase58(string(pair.Value))
 	if err != nil {
-		return a, fmt.Errorf("listenConsul: PublicKeyFromBase58: %s", err)
+		return a, fmt.Errorf("PublicKeyFromBase58: %s", err)
+	}
+	paymentWatcher, err := newPaymentsWatcher(cfg.API.RPCAddress, &pgStorage, paymentRecepient)
+	if err != nil {
+		return a, fmt.Errorf("newPaymentsWatcher: %s", err)
 	}
 
 	a = &api{
@@ -180,7 +185,8 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		consulKV:          consulKV,
 		pricing:           pricing,
 		mplxPrice:         price,
-		paymentRecepient:  paymentRecepient,
+		paymentRecipient:  paymentRecepient,
+		paymentWatcher:    paymentWatcher,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -214,6 +220,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	}
 	go chStorage.RunStatsAggregator(ctx)
 	go a.listenConsul(ctx)
+	go paymentWatcher.watchPayments(ctx)
 
 	return a, nil
 }
@@ -232,7 +239,7 @@ func initAPIServer() *echo.Echo {
 }
 
 // @title						Swagger Aura
-// @version					0.0.2
+// @version					0.0.3
 // @description				Swagger API server for Aura API.
 // @termsOfService				http://swagger.io/terms/
 // @BasePath					/
@@ -274,6 +281,7 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	// Payments
 	paymentGroup := protectedGroup.Group("/payments")
 	paymentGroup.GET("/link", a.getPaymentLink)
+	paymentGroup.GET("/status", a.getPaymentLink)
 }
 
 func (a *api) Run() (err error) {
