@@ -24,10 +24,8 @@ const (
 )
 
 const (
-	expectedAccountsLen             = 7
 	expectedMintAccountIndex        = 1
 	expectedDestinationAccountIndex = 2
-	expectedReferenceAccountIndex   = 3
 
 	getSignaturesLimit = 1000
 )
@@ -39,6 +37,7 @@ type paymentsWatcher struct {
 	paymentRecipient                       solana.PublicKey
 	paymentRecipientAssociatedTokenAddress solana.PublicKey
 	lastProcessedSignature                 solana.Signature
+	unpaidReferences                       map[string]struct{}
 }
 
 func newPaymentsWatcher(rpcAddress string, pgStorage *postgres.Storage, paymentRecipient solana.PublicKey) (p paymentsWatcher, err error) {
@@ -94,6 +93,11 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 			log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
 		}
 		p.lastProcessedSignature = lastProcessedSig
+		unpaidReferences, err := p.pgStorage.FetchAllUnpaidReferences(ctx)
+		if err != nil && !errors.Is(err, pg.ErrNoRows) {
+			log.Logger.API.Errorf("watchPayments: FetchAllUnpaidReferences: %s", err)
+		}
+		p.unpaidReferences = unpaidReferences
 
 		err = p.processNewTransfers(ctx)
 		if err != nil {
@@ -212,10 +216,16 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 		switch spec := tokenInst.Impl.(type) {
 		case *token.TransferChecked:
 			{
-				if parsedTx.Message.AccountKeys.Len() != expectedAccountsLen {
+				var reference solana.PublicKey
+				for _, accountKey := range parsedTx.Message.AccountKeys {
+					if _, ok := p.unpaidReferences[accountKey.String()]; ok {
+						reference = accountKey
+						break
+					}
+				}
+				if reference == solana.SystemProgramID {
 					continue
 				}
-				reference := parsedTx.Message.AccountKeys[expectedReferenceAccountIndex]
 				mint := spec.Accounts.Get(expectedMintAccountIndex)
 				if mint == nil {
 					continue

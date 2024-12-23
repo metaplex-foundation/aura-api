@@ -30,6 +30,9 @@ const (
 	granularityParam        = "granularity"
 	amountParam             = "amount"
 	paymentTypeParam        = "payment_type"
+	referenceParam          = "reference"
+	pageParam               = "page"
+	limitParam              = "limit"
 )
 
 var (
@@ -576,8 +579,8 @@ func (a *api) getPaymentLink(c echo.Context) (err error) {
 
 // getPaymentStatus godoc
 //
-//	@Summary		Get payment link
-//	@Description	Get payment link
+//	@Summary		Get payment status
+//	@Description	Get payment status
 //	@Tags			payment
 //	@Produce		json
 //	@Param			reference	query		string					true	"Reference address"
@@ -593,19 +596,72 @@ func (a *api) getPaymentStatus(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getPaymentLink: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	amount := c.QueryParam(amountParam)
-	if amount == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missing parameter: %s", amountParam))
+	reference := c.QueryParam(referenceParam)
+	if reference == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missing parameter: %s", referenceParam))
 	}
-	paymentType := c.QueryParam(paymentTypeParam)
-	if paymentType == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missing parameter: %s", paymentTypeParam))
+	isPaid, err := a.pgStorage.CheckIfReferencePaid(c.Request().Context(), reference)
+	if err != nil {
+		log.Logger.API.Errorf("getPaymentStatus: CheckIfReferencePaid: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	//paymentLink, err := a.paymentWatcher.generateSolanaPayPaymentLink(amount, paymentType)
-	//if err != nil {
-	//	log.Logger.API.Errorf("getPaymentLink: generateSolanaPayPaymentLink: %s", err)
-	//	return echo.NewHTTPError(http.StatusInternalServerError)
-	//}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, PaymentStatusResponse{
+		IsPaid: isPaid,
+	})
+}
+
+// getPaymentHistory godoc
+//
+//	@Summary		Get payment history
+//	@Description	Get payment history
+//	@Tags			payment
+//	@Produce		json
+//	@Param			limit	query		int64					false	"Payments per page. Default 10"
+//	@Param			page	query		int64					true	"Page number. Default 1"
+//	@Success		200			{object}	PaymentStatusHistoryResponse	"Payment history"
+//	@Failure		400			{object}	error
+//	@Failure		401			{object}	error
+//	@Failure		500			{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/payments/history [get]
+func (a *api) getPaymentHistory(c echo.Context) (err error) {
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("getPaymentLink: fail to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	var page uint64 = 1
+	if pageString := c.QueryParam(pageParam); pageString != "" {
+		p, err := strconv.ParseUint(pageString, 10, 64)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid %s parameter: %s", pageParam, err))
+		}
+		page = p
+	}
+	var limit uint64 = 10
+	if limitString := c.QueryParam(limitParam); limitString != "" {
+		l, err := strconv.ParseUint(limitString, 10, 64)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid %s parameter: %s", limitParam, err))
+		}
+		limit = l
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	paymentHistory, err := a.pgStorage.GetUserPaymentHistory(c.Request().Context(), u.ID, int64(limit), int64(page))
+	if err != nil {
+		log.Logger.API.Errorf("getPaymentStatus: CheckIfReferencePaid: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	var p PaymentStatusHistoryResponse
+	p.fromDBModels(paymentHistory)
+
+	return c.JSON(http.StatusOK, p)
 }

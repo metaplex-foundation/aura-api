@@ -14,6 +14,28 @@ definitions:
           type: string
         type: array
     type: object
+  api.PaymentStatusHistoryElement:
+    properties:
+      created_at:
+        type: string
+      mplx_amount:
+        type: integer
+      paid_at:
+        type: string
+      reference:
+        type: string
+      signature:
+        type: string
+    type: object
+  api.PaymentStatusHistoryResponse:
+    properties:
+      history:
+        items:
+          $ref: '#/definitions/api.PaymentStatusHistoryElement'
+        type: array
+      total_count:
+        type: integer
+    type: object
   api.PaymentStatusResponse:
     properties:
       is_paid:
@@ -156,7 +178,7 @@ info:
   description: Swagger API server for Aura API.
   termsOfService: http://swagger.io/terms/
   title: Swagger Aura
-  version: 0.0.2
+  version: 0.0.3
 paths:
   /keys:
     get:
@@ -356,6 +378,40 @@ paths:
       summary: Get list of supported networks
       tags:
       - networks
+  /payments/history:
+    get:
+      description: Get payment history
+      parameters:
+      - description: Payments per page. Default 10
+        in: query
+        name: limit
+        type: integer
+      - description: Page number. Default 1
+        in: query
+        name: page
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment history
+          schema:
+            $ref: '#/definitions/api.PaymentStatusHistoryResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Get payment history
+      tags:
+      - payment
   /payments/link:
     get:
       description: Get payment link
@@ -396,7 +452,7 @@ paths:
       - payment
   /payments/status:
     get:
-      description: Get payment link
+      description: Get payment status
       parameters:
       - description: Reference address
         in: query
@@ -421,7 +477,7 @@ paths:
           schema: {}
       security:
       - ApiKeyAuth: []
-      summary: Get payment link
+      summary: Get payment status
       tags:
       - payment
   /plan:

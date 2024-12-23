@@ -281,7 +281,8 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	// Payments
 	paymentGroup := protectedGroup.Group("/payments")
 	paymentGroup.GET("/link", a.getPaymentLink)
-	paymentGroup.GET("/status", a.getPaymentLink)
+	paymentGroup.GET("/status", a.getPaymentStatus)
+	paymentGroup.GET("/history", a.getPaymentHistory)
 }
 
 func (a *api) Run() (err error) {

@@ -12,7 +12,7 @@
         "title": "Swagger Aura",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {},
-        "version": "0.0.2"
+        "version": "0.0.3"
     },
     "basePath": "/",
     "paths": {
@@ -309,6 +309,58 @@
                 }
             }
         },
+        "/payments/history": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get payment history",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Get payment history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Payments per page. Default 10",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number. Default 1",
+                        "name": "page",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment history",
+                        "schema": {
+                            "$ref": "#/definitions/api.PaymentStatusHistoryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
         "/payments/link": {
             "get": {
                 "security": [
@@ -372,14 +424,14 @@
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get payment link",
+                "description": "Get payment status",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "payment"
                 ],
-                "summary": "Get payment link",
+                "summary": "Get payment status",
                 "parameters": [
                     {
                         "type": "string",
@@ -779,6 +831,40 @@
                             " Solana"
                         ]
                     }
+                }
+            }
+        },
+        "api.PaymentStatusHistoryElement": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "mplx_amount": {
+                    "type": "integer"
+                },
+                "paid_at": {
+                    "type": "string"
+                },
+                "reference": {
+                    "type": "string"
+                },
+                "signature": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.PaymentStatusHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "history": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.PaymentStatusHistoryElement"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         },
