@@ -47,6 +47,23 @@ var (
 )
 
 type (
+	PaymentStatusResponse struct {
+		IsPaid bool `json:"is_paid"`
+	}
+	PaymentStatusHistoryElement struct {
+		Reference  string     `json:"reference"`
+		Signature  *string    `json:"signature"`
+		MplxAmount *int64     `json:"mplx_amount"`
+		CreatedAt  time.Time  `json:"created_at"`
+		PaidAt     *time.Time `json:"paid_at"`
+	}
+	PaymentStatusHistoryResponse struct {
+		TotalCount int64                         `json:"total_count"`
+		History    []PaymentStatusHistoryElement `json:"history"`
+	}
+)
+
+type (
 	CreateAPIKeyRequestParams struct {
 		Name     string   `json:"name"`
 		Networks []string `json:"networks" enums:"Aura, Solana"`
@@ -255,5 +272,22 @@ func (a *api) UiPricingModel(model PricingModel) UIPricing {
 	return UIPricing{
 		RequestsPerSecond: model.RequestsPerSecond,
 		PriceMPLX:         model.PriceUSD.Div(a.mplxPrice).Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64(),
+	}
+}
+
+func (p *PaymentStatusHistoryResponse) fromDBModels(payments []postgres.CryptoPaymentWithTotalCount) {
+	if len(payments) == 0 {
+		return
+	}
+	p.TotalCount = payments[0].Total
+	p.History = make([]PaymentStatusHistoryElement, 0, len(payments))
+	for i := range payments {
+		p.History = append(p.History, PaymentStatusHistoryElement{
+			Reference:  payments[i].Reference,
+			Signature:  payments[i].Signature,
+			MplxAmount: payments[i].MplxAmount,
+			CreatedAt:  payments[i].CreatedAt,
+			PaidAt:     payments[i].PaidAt,
+		})
 	}
 }
