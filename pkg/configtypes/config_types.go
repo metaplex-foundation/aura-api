@@ -16,6 +16,7 @@ type (
 		DynamicEnvironmentID string `required:"true" split_words:"true"`
 		DynamicJWKSEndpoint  string `envconfig:"API_DYNAMIC_JWKS_ENDPOINT" required:"true" split_words:"true"`
 		DynamicAPIToken      string `envconfig:"API_DYNAMIC_API_TOKEN" required:"true" split_words:"true"`
+		RPCAddress           string `envconfig:"API_RPC_ADDRESS" required:"true" split_words:"true"`
 
 		Port        uint64 `required:"true" split_words:"true"`
 		GRPCPort    uint64 `required:"true" split_words:"true"`
