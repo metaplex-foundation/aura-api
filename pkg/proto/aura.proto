@@ -3,7 +3,7 @@ syntax = "proto3";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "scanner-api-back-golang/internal/pkg/proto";
+option go_package = "aura-api/pkg/proto";
 
 package proto;
 
@@ -12,6 +12,9 @@ service Aura {
   rpc BatchInsertStats(BatchInsertStatsReq) returns (google.protobuf.Empty) {}
   rpc IncreaseUserRequests(IncreaseUserRequestsReq) returns (google.protobuf.Empty) {}
   rpc BatchInsertDetailedRequests(BatchInsertDetailedRequestsReq) returns (google.protobuf.Empty) {}
+  // PosgreSQL
+  rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoResp) {}
+  rpc GetSubscriptions(google.protobuf.Empty) returns (GetSubscriptionsResp) {}
 }
 
 message Stat {
@@ -59,4 +62,47 @@ message DetailedRequest {
 
 message BatchInsertDetailedRequestsReq {
   repeated DetailedRequest req = 1;
+}
+
+message GetUserInfoReq {
+  string api_token = 1;
+}
+message GetUserInfoResp {
+  UserWithTokens user = 1;
+}
+message UserWithTokens {
+  string user = 1;
+  int64 subscription_id = 2;
+  int64 mplx_balance = 3;
+  google.protobuf.Timestamp subscription_ends_on = 4;
+  repeated string tokens = 5;
+}
+
+message PricingModel {
+  int32 requests_per_second = 1;
+  int64 price_mplx = 2;
+}
+
+message Pricing {
+  PricingModel aura_das = 1;
+  PricingModel eclipse_das = 2;
+  PricingModel eclipse_rpc = 3;
+  PricingModel solana_rpc = 4;
+  PricingModel get_program_accounts = 5;
+  PricingModel solana_swqos = 6;
+  PricingModel websocket = 7;
+  int64 monthly_price_mplx = 8;
+}
+
+message SubscriptionWithPricing {
+  int64 id = 1;
+  string name = 2;
+  int64 priority = 3;
+  int64 api_tokens_limit = 4;
+  bool priority_support = 5;
+  Pricing pricing = 6;
+}
+
+message GetSubscriptionsResp {
+  repeated SubscriptionWithPricing subscriptions = 1;
 }

@@ -40,7 +40,7 @@ import (
 
 type (
 	PricingModel struct {
-		RequestsPerSecond int             `json:"requests_per_second"`
+		RequestsPerSecond int32           `json:"requests_per_second"`
 		PriceUSD          decimal.Decimal `json:"price_usd"`
 	}
 	PricingConfig struct {
@@ -114,12 +114,6 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	}
 	//panic(chStorage.InsertMockedData(100000))
 
-	g := grpc.NewServer()
-	proto.RegisterAuraServer(g, &auraServer{
-		pgStorage: &pgStorage,
-		chStorage: chStorage,
-	})
-
 	emailSender := email.NewEmailSender(cfg.API.EmailToken)
 	cacheInstance := cache.New(cacheTTL, cacheTTL)
 	if err != nil {
@@ -166,6 +160,14 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		return a, fmt.Errorf("newPaymentsWatcher: %s", err)
 	}
 
+	// TODO: add consul watching
+	g := grpc.NewServer()
+	proto.RegisterAuraServer(g, &auraServer{
+		pgStorage: &pgStorage,
+		chStorage: chStorage,
+		pricing:   pricing,
+		mplxPrice: price,
+	})
 	a = &api{
 		conf:         cfg.API,
 		router:       initAPIServer(),
@@ -220,7 +222,9 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	}
 	go chStorage.RunStatsAggregator(ctx)
 	go a.listenConsul(ctx)
-	go paymentWatcher.watchPayments(ctx)
+	if cfg.API.IsFrontendAPI {
+		go paymentWatcher.watchPayments(ctx)
+	}
 
 	return a, nil
 }

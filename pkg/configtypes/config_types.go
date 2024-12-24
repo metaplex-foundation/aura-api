@@ -21,6 +21,8 @@ type (
 		Port        uint64 `required:"true" split_words:"true"`
 		GRPCPort    uint64 `required:"true" split_words:"true"`
 		SwaggerPort uint64 `required:"true" split_words:"true"`
+
+		IsFrontendAPI bool `envconfig:"API_IS_FRONTEND_API" required:"true" split_words:"true"`
 	}
 )
 

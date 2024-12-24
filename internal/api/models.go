@@ -94,7 +94,7 @@ type (
 		Subscription       SubscriptionWithPricing `json:"subscription"`
 	}
 	UIPricing struct {
-		RequestsPerSecond int   `json:"requests_per_second"`
+		RequestsPerSecond int32 `json:"requests_per_second"`
 		PriceMPLX         int64 `json:"price_mplx"`
 	}
 	Pricing struct {
@@ -146,13 +146,13 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan) (u User) {
+func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan, pricing PricingPlans, mplxPrice decimal.Decimal) (u User) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
 	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
 	u.SubscriptionEndsOn = user.User.SubscriptionEndsOn
-	u.Subscription = a.SubscriptionWithPricingFromDBModel(user.Plan)
+	u.Subscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
 	return u
 }
 
@@ -213,7 +213,7 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 	return time.Now().UTC().Add(-timeframeDuration), nil
 }
 
-func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) SubscriptionWithPricing {
+func SubscriptionWithPricingFromDBModel(plan postgres.Plan, pricing PricingPlans, mplxPrice decimal.Decimal) SubscriptionWithPricing {
 	subscriptionWithPricing := SubscriptionWithPricing{
 		ID:             plan.PlanID,
 		Name:           plan.Name,
@@ -222,17 +222,17 @@ func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) Subscriptio
 	}
 	switch plan.Name {
 	case freeSubcriptionPlanName:
-		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Free)
-		subscriptionWithPricing.PrioritySupport = a.pricing.Free.PrioritySupport
+		subscriptionWithPricing.Pricing = ConvertUIPricing(pricing.Free, mplxPrice)
+		subscriptionWithPricing.PrioritySupport = pricing.Free.PrioritySupport
 	case developerSubcriptionPlanName:
-		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Developer)
-		subscriptionWithPricing.PrioritySupport = a.pricing.Developer.PrioritySupport
+		subscriptionWithPricing.Pricing = ConvertUIPricing(pricing.Developer, mplxPrice)
+		subscriptionWithPricing.PrioritySupport = pricing.Developer.PrioritySupport
 	case advancedSubcriptionPlanName:
-		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Advanced)
-		subscriptionWithPricing.PrioritySupport = a.pricing.Advanced.PrioritySupport
+		subscriptionWithPricing.Pricing = ConvertUIPricing(pricing.Advanced, mplxPrice)
+		subscriptionWithPricing.PrioritySupport = pricing.Advanced.PrioritySupport
 	case proSubcriptionPlanName:
-		subscriptionWithPricing.Pricing = a.ConvertUIPricing(a.pricing.Pro)
-		subscriptionWithPricing.PrioritySupport = a.pricing.Pro.PrioritySupport
+		subscriptionWithPricing.Pricing = ConvertUIPricing(pricing.Pro, mplxPrice)
+		subscriptionWithPricing.PrioritySupport = pricing.Pro.PrioritySupport
 	default:
 		log.Logger.API.Errorf("invalid subscription name: %s", plan.Name)
 	}
@@ -240,10 +240,10 @@ func (a *api) SubscriptionWithPricingFromDBModel(plan postgres.Plan) Subscriptio
 	return subscriptionWithPricing
 }
 
-func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []SubscriptionWithPricing {
+func getSubscriptionsWithPricingList(subscriptions []postgres.Plan, pricing PricingPlans, mplxPrice decimal.Decimal) []SubscriptionWithPricing {
 	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
 	for _, s := range subscriptions {
-		subscriptionWithPricing := a.SubscriptionWithPricingFromDBModel(s)
+		subscriptionWithPricing := SubscriptionWithPricingFromDBModel(s, pricing, mplxPrice)
 		if subscriptionWithPricing.APITokensLimit != 0 {
 			result = append(result, subscriptionWithPricing)
 		}
@@ -255,23 +255,23 @@ func (a *api) getSubscriptionsWithPricingList(subscriptions []postgres.Plan) []S
 	return result
 }
 
-func (a *api) ConvertUIPricing(cfg PricingConfig) Pricing {
+func ConvertUIPricing(cfg PricingConfig, mplxPrice decimal.Decimal) Pricing {
 	return Pricing{
-		AuraDAS:            a.UiPricingModel(cfg.AuraDAS),
-		EclipseDAS:         a.UiPricingModel(cfg.EclipseDAS),
-		EclipseRPC:         a.UiPricingModel(cfg.EclipseRPC),
-		SolanaRPC:          a.UiPricingModel(cfg.SolanaRPC),
-		GetProgramAccounts: a.UiPricingModel(cfg.GetProgramAccounts),
-		SolanaSWQOS:        a.UiPricingModel(cfg.SolanaSWQOS),
-		Websocket:          a.UiPricingModel(cfg.Websocket),
+		AuraDAS:            UiPricingModel(cfg.AuraDAS, mplxPrice),
+		EclipseDAS:         UiPricingModel(cfg.EclipseDAS, mplxPrice),
+		EclipseRPC:         UiPricingModel(cfg.EclipseRPC, mplxPrice),
+		SolanaRPC:          UiPricingModel(cfg.SolanaRPC, mplxPrice),
+		GetProgramAccounts: UiPricingModel(cfg.GetProgramAccounts, mplxPrice),
+		SolanaSWQOS:        UiPricingModel(cfg.SolanaSWQOS, mplxPrice),
+		Websocket:          UiPricingModel(cfg.Websocket, mplxPrice),
 		MonthlyPriceMPLX:   cfg.MonthlyPriceMPLX,
 	}
 }
 
-func (a *api) UiPricingModel(model PricingModel) UIPricing {
+func UiPricingModel(model PricingModel, mplxPrice decimal.Decimal) UIPricing {
 	return UIPricing{
 		RequestsPerSecond: model.RequestsPerSecond,
-		PriceMPLX:         model.PriceUSD.Div(a.mplxPrice).Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64(),
+		PriceMPLX:         model.PriceUSD.Div(mplxPrice).Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64(),
 	}
 }
 

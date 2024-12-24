@@ -22,6 +22,13 @@ type (
 		User
 		Plan
 	}
+	UserWithAPIKeys struct {
+		DynamicID          string     `pg:"usr_dynamic_id"`
+		SubscriptionID     int64      `pg:"sbs_id"`
+		MplxBalance        int64      `pg:"usr_mplx_balance"`
+		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
+		APIKeys            []string   `pg:"api_keys"`
+	}
 )
 
 const (
@@ -99,4 +106,31 @@ func (s *Storage) UpdateUserSubscriptionPlan(ctx context.Context, usrID int64, s
 	}
 
 	return nil
+}
+
+func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserWithAPIKeys, err error) {
+	if apiToken == "" {
+		return u, errors.New("empty token")
+	}
+
+	query := `SELECT 
+	    users.usr_dynamic_id,
+	    users.sbs_id,
+	    users.usr_mplx_balance,
+	    users.usr_sbs_ends_on,
+	    array_agg(uak.uak_token) as api_keys
+	FROM 
+	    users
+	LEFT JOIN 
+	    user_api_keys USING(usr_id)
+	WHERE 
+	    user_api_keys.uak_token = ?
+	GROUP BY 
+	    users.usr_id, users.usr_dynamic_id, users.sbs_id, users.usr_mplx_balance, users.usr_sbs_ends_on;`
+	_, err = s.db.QueryOneContext(ctx, &u, query, apiToken)
+	if err != nil {
+		return u, err
+	}
+
+	return u, nil
 }

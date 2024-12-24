@@ -2,13 +2,12 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v3.15.8
-// source: internal/pkg/proto/aura.proto
+// source: pkg/proto/aura.proto
 
 package proto
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -24,6 +23,8 @@ const (
 	Aura_BatchInsertStats_FullMethodName            = "/proto.Aura/BatchInsertStats"
 	Aura_IncreaseUserRequests_FullMethodName        = "/proto.Aura/IncreaseUserRequests"
 	Aura_BatchInsertDetailedRequests_FullMethodName = "/proto.Aura/BatchInsertDetailedRequests"
+	Aura_GetUserInfo_FullMethodName                 = "/proto.Aura/GetUserInfo"
+	Aura_GetSubscriptions_FullMethodName            = "/proto.Aura/GetSubscriptions"
 )
 
 // AuraClient is the client API for Aura service.
@@ -34,6 +35,9 @@ type AuraClient interface {
 	BatchInsertStats(ctx context.Context, in *BatchInsertStatsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	IncreaseUserRequests(ctx context.Context, in *IncreaseUserRequestsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	BatchInsertDetailedRequests(ctx context.Context, in *BatchInsertDetailedRequestsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// PosgreSQL
+	GetUserInfo(ctx context.Context, in *GetUserInfoReq, opts ...grpc.CallOption) (*GetUserInfoResp, error)
+	GetSubscriptions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSubscriptionsResp, error)
 }
 
 type auraClient struct {
@@ -71,6 +75,24 @@ func (c *auraClient) BatchInsertDetailedRequests(ctx context.Context, in *BatchI
 	return out, nil
 }
 
+func (c *auraClient) GetUserInfo(ctx context.Context, in *GetUserInfoReq, opts ...grpc.CallOption) (*GetUserInfoResp, error) {
+	out := new(GetUserInfoResp)
+	err := c.cc.Invoke(ctx, Aura_GetUserInfo_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *auraClient) GetSubscriptions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSubscriptionsResp, error) {
+	out := new(GetSubscriptionsResp)
+	err := c.cc.Invoke(ctx, Aura_GetSubscriptions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuraServer is the server API for Aura service.
 // All implementations must embed UnimplementedAuraServer
 // for forward compatibility
@@ -79,6 +101,9 @@ type AuraServer interface {
 	BatchInsertStats(context.Context, *BatchInsertStatsReq) (*emptypb.Empty, error)
 	IncreaseUserRequests(context.Context, *IncreaseUserRequestsReq) (*emptypb.Empty, error)
 	BatchInsertDetailedRequests(context.Context, *BatchInsertDetailedRequestsReq) (*emptypb.Empty, error)
+	// PosgreSQL
+	GetUserInfo(context.Context, *GetUserInfoReq) (*GetUserInfoResp, error)
+	GetSubscriptions(context.Context, *emptypb.Empty) (*GetSubscriptionsResp, error)
 	mustEmbedUnimplementedAuraServer()
 }
 
@@ -94,6 +119,12 @@ func (UnimplementedAuraServer) IncreaseUserRequests(context.Context, *IncreaseUs
 }
 func (UnimplementedAuraServer) BatchInsertDetailedRequests(context.Context, *BatchInsertDetailedRequestsReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BatchInsertDetailedRequests not implemented")
+}
+func (UnimplementedAuraServer) GetUserInfo(context.Context, *GetUserInfoReq) (*GetUserInfoResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetUserInfo not implemented")
+}
+func (UnimplementedAuraServer) GetSubscriptions(context.Context, *emptypb.Empty) (*GetSubscriptionsResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscriptions not implemented")
 }
 func (UnimplementedAuraServer) mustEmbedUnimplementedAuraServer() {}
 
@@ -162,6 +193,42 @@ func _Aura_BatchInsertDetailedRequests_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Aura_GetUserInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserInfoReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuraServer).GetUserInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Aura_GetUserInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuraServer).GetUserInfo(ctx, req.(*GetUserInfoReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Aura_GetSubscriptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuraServer).GetSubscriptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Aura_GetSubscriptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuraServer).GetSubscriptions(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Aura_ServiceDesc is the grpc.ServiceDesc for Aura service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -181,7 +248,15 @@ var Aura_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "BatchInsertDetailedRequests",
 			Handler:    _Aura_BatchInsertDetailedRequests_Handler,
 		},
+		{
+			MethodName: "GetUserInfo",
+			Handler:    _Aura_GetUserInfo_Handler,
+		},
+		{
+			MethodName: "GetSubscriptions",
+			Handler:    _Aura_GetSubscriptions_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/pkg/proto/aura.proto",
+	Metadata: "pkg/proto/aura.proto",
 }
