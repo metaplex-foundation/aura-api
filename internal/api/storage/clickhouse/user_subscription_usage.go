@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/adm-metaex/aura-api/pkg/log"
+	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 )
 
 const userSubscriptionUsageTable = "aura.user_subscription_usage"
@@ -40,7 +41,7 @@ func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uui
 	return r
 }
 
-func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]int64) error {
+func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]*auraProto.UserRequestsByChain) error {
 	if len(reqs) == 0 {
 		return nil
 	}
@@ -60,7 +61,9 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]int64) error 
 	stmt, err := tx.Prepare(`INSERT INTO user_subscription_usage (
 		time,
 		user_uid,
-        used_credits
+        used_credits,
+        chain,
+        tkn_uuid                             
 	)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement error: %s", err)
@@ -68,14 +71,20 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]int64) error 
 	defer stmt.Close()
 
 	timeNow := time.Now()
-	for userUID, usedCredits := range reqs {
-		_, err = stmt.Exec(
-			timeNow,
-			userUID,
-			usedCredits,
-		)
-		if err != nil {
-			return fmt.Errorf("exec statement error: %s", err)
+	for userUID, reqChain := range reqs {
+		for chain, reqToken := range reqChain.GetReqs() {
+			for token, usedCredits := range reqToken.GetReqs() {
+				_, err = stmt.Exec(
+					timeNow,
+					userUID,
+					usedCredits,
+					chain,
+					token,
+				)
+				if err != nil {
+					return fmt.Errorf("exec statement error: %s", err)
+				}
+			}
 		}
 	}
 

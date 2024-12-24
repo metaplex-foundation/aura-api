@@ -20,11 +20,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Aura_BatchInsertStats_FullMethodName            = "/proto.Aura/BatchInsertStats"
-	Aura_IncreaseUserRequests_FullMethodName        = "/proto.Aura/IncreaseUserRequests"
-	Aura_BatchInsertDetailedRequests_FullMethodName = "/proto.Aura/BatchInsertDetailedRequests"
-	Aura_GetUserInfo_FullMethodName                 = "/proto.Aura/GetUserInfo"
-	Aura_GetSubscriptions_FullMethodName            = "/proto.Aura/GetSubscriptions"
+	Aura_BatchInsertStats_FullMethodName     = "/proto.Aura/BatchInsertStats"
+	Aura_IncreaseUserRequests_FullMethodName = "/proto.Aura/IncreaseUserRequests"
+	Aura_GetUserInfo_FullMethodName          = "/proto.Aura/GetUserInfo"
+	Aura_GetSubscriptions_FullMethodName     = "/proto.Aura/GetSubscriptions"
 )
 
 // AuraClient is the client API for Aura service.
@@ -34,7 +33,6 @@ type AuraClient interface {
 	// ClickHouse
 	BatchInsertStats(ctx context.Context, in *BatchInsertStatsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	IncreaseUserRequests(ctx context.Context, in *IncreaseUserRequestsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	BatchInsertDetailedRequests(ctx context.Context, in *BatchInsertDetailedRequestsReq, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// PosgreSQL
 	GetUserInfo(ctx context.Context, in *GetUserInfoReq, opts ...grpc.CallOption) (*GetUserInfoResp, error)
 	GetSubscriptions(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*GetSubscriptionsResp, error)
@@ -66,15 +64,6 @@ func (c *auraClient) IncreaseUserRequests(ctx context.Context, in *IncreaseUserR
 	return out, nil
 }
 
-func (c *auraClient) BatchInsertDetailedRequests(ctx context.Context, in *BatchInsertDetailedRequestsReq, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Aura_BatchInsertDetailedRequests_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *auraClient) GetUserInfo(ctx context.Context, in *GetUserInfoReq, opts ...grpc.CallOption) (*GetUserInfoResp, error) {
 	out := new(GetUserInfoResp)
 	err := c.cc.Invoke(ctx, Aura_GetUserInfo_FullMethodName, in, out, opts...)
@@ -100,7 +89,6 @@ type AuraServer interface {
 	// ClickHouse
 	BatchInsertStats(context.Context, *BatchInsertStatsReq) (*emptypb.Empty, error)
 	IncreaseUserRequests(context.Context, *IncreaseUserRequestsReq) (*emptypb.Empty, error)
-	BatchInsertDetailedRequests(context.Context, *BatchInsertDetailedRequestsReq) (*emptypb.Empty, error)
 	// PosgreSQL
 	GetUserInfo(context.Context, *GetUserInfoReq) (*GetUserInfoResp, error)
 	GetSubscriptions(context.Context, *emptypb.Empty) (*GetSubscriptionsResp, error)
@@ -116,9 +104,6 @@ func (UnimplementedAuraServer) BatchInsertStats(context.Context, *BatchInsertSta
 }
 func (UnimplementedAuraServer) IncreaseUserRequests(context.Context, *IncreaseUserRequestsReq) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IncreaseUserRequests not implemented")
-}
-func (UnimplementedAuraServer) BatchInsertDetailedRequests(context.Context, *BatchInsertDetailedRequestsReq) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BatchInsertDetailedRequests not implemented")
 }
 func (UnimplementedAuraServer) GetUserInfo(context.Context, *GetUserInfoReq) (*GetUserInfoResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserInfo not implemented")
@@ -175,24 +160,6 @@ func _Aura_IncreaseUserRequests_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Aura_BatchInsertDetailedRequests_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchInsertDetailedRequestsReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuraServer).BatchInsertDetailedRequests(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Aura_BatchInsertDetailedRequests_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuraServer).BatchInsertDetailedRequests(ctx, req.(*BatchInsertDetailedRequestsReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Aura_GetUserInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserInfoReq)
 	if err := dec(in); err != nil {
@@ -243,10 +210,6 @@ var Aura_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "IncreaseUserRequests",
 			Handler:    _Aura_IncreaseUserRequests_Handler,
-		},
-		{
-			MethodName: "BatchInsertDetailedRequests",
-			Handler:    _Aura_BatchInsertDetailedRequests_Handler,
 		},
 		{
 			MethodName: "GetUserInfo",

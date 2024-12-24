@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-pg/pg/v10"
+
+	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 )
 
 type (
@@ -118,7 +120,7 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	    users.sbs_id,
 	    users.usr_mplx_balance,
 	    users.usr_sbs_ends_on,
-	    array_agg(uak.uak_token) as api_keys
+	    (SELECT json_agg(user_api_keys.uak_token) FROM user_api_keys WHERE user_api_keys.usr_id = users.usr_id) as api_keys
 	FROM 
 	    users
 	LEFT JOIN 
@@ -133,4 +135,26 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	}
 
 	return u, nil
+}
+
+func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) error {
+	for userID, chains := range req.GetReqs() {
+		// Sum all credits for the user
+		var totalCredits int64
+		for _, chain := range chains.GetReqs() {
+			for _, tokens := range chain.GetReqs() {
+				totalCredits += tokens
+			}
+		}
+
+		query := `UPDATE users
+			SET usr_mplx_balance = GREATEST(usr_mplx_balance - ?, 0)
+			WHERE usr_dynamic_id = ?`
+		_, err := s.db.Exec(query, totalCredits, userID)
+		if err != nil {
+			return fmt.Errorf("ExecContext user %s: %w", userID, err)
+		}
+	}
+
+	return nil
 }

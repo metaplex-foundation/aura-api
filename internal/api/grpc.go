@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -38,17 +39,11 @@ func (s *auraServer) BatchInsertStats(_ context.Context, in *auraProto.BatchInse
 func (s *auraServer) IncreaseUserRequests(_ context.Context, in *auraProto.IncreaseUserRequestsReq) (*emptypb.Empty, error) {
 	err := s.chStorage.BatchInsertUserSubscriptionUsage(in.GetReqs())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("BatchInsertUserSubscriptionUsage: %w", err)
 	}
-
-	return new(emptypb.Empty), nil
-}
-
-func (s *auraServer) BatchInsertDetailedRequests(_ context.Context, in *auraProto.BatchInsertDetailedRequestsReq) (*emptypb.Empty, error) {
-	// no need to handle context
-	err := s.chStorage.BatchInsertDetailedRequests(in.GetReq())
+	err = s.pgStorage.UpdateUserBalances(in)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("UpdateUserBalances: %w", err)
 	}
 
 	return new(emptypb.Empty), nil
