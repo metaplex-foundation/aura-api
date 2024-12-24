@@ -33,8 +33,8 @@ func (c ClickhouseConfig) Validate() error {
 }
 
 func (p PostgresConfig) Validate() error { //nolint:gocritic
-	if p.Port == 0 {
-		return ErrInvalidPort
+	if p.URL == "" {
+		return errors.New("invalid url")
 	}
 
 	return nil
