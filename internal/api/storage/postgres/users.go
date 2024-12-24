@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-pg/pg/v10"
+
+	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 )
 
 type (
@@ -21,6 +23,13 @@ type (
 	UserWithCurrentPlan struct {
 		User
 		Plan
+	}
+	UserWithAPIKeys struct {
+		DynamicID          string     `pg:"usr_dynamic_id"`
+		SubscriptionID     int64      `pg:"sbs_id"`
+		MplxBalance        int64      `pg:"usr_mplx_balance"`
+		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
+		APIKeys            []string   `pg:"api_keys"`
 	}
 )
 
@@ -96,6 +105,55 @@ func (s *Storage) UpdateUserSubscriptionPlan(ctx context.Context, usrID int64, s
 	_, err = s.db.ExecOneContext(ctx, query, subscriptionID, usrID)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserWithAPIKeys, err error) {
+	if apiToken == "" {
+		return u, errors.New("empty token")
+	}
+
+	query := `SELECT 
+	    users.usr_dynamic_id,
+	    users.sbs_id,
+	    users.usr_mplx_balance,
+	    users.usr_sbs_ends_on,
+	    (SELECT json_agg(user_api_keys.uak_token) FROM user_api_keys WHERE user_api_keys.usr_id = users.usr_id) as api_keys
+	FROM 
+	    users
+	LEFT JOIN 
+	    user_api_keys USING(usr_id)
+	WHERE 
+	    user_api_keys.uak_token = ?
+	GROUP BY 
+	    users.usr_id, users.usr_dynamic_id, users.sbs_id, users.usr_mplx_balance, users.usr_sbs_ends_on;`
+	_, err = s.db.QueryOneContext(ctx, &u, query, apiToken)
+	if err != nil {
+		return u, err
+	}
+
+	return u, nil
+}
+
+func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) error {
+	for userID, chains := range req.GetReqs() {
+		// Sum all credits for the user
+		var totalCredits int64
+		for _, chain := range chains.GetReqs() {
+			for _, tokens := range chain.GetReqs() {
+				totalCredits += tokens
+			}
+		}
+
+		query := `UPDATE users
+			SET usr_mplx_balance = GREATEST(usr_mplx_balance - ?, 0)
+			WHERE usr_dynamic_id = ?`
+		_, err := s.db.Exec(query, totalCredits, userID)
+		if err != nil {
+			return fmt.Errorf("ExecContext user %s: %w", userID, err)
+		}
 	}
 
 	return nil

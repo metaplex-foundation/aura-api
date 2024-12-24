@@ -134,8 +134,15 @@ func (a *api) listenConsul(ctx context.Context) {
 					lastIndex = meta.LastIndex
 					continue
 				}
-
+				newpaymentRecipientAssociatedTokenAddress, _, err := solana.FindAssociatedTokenAddress(newRecipient, metaplexToken)
+				if err != nil {
+					log.Logger.API.Errorf("listenConsul: FindAssociatedTokenAddress: %s", err)
+					lastIndex = meta.LastIndex
+					continue
+				}
 				a.paymentRecipient = newRecipient
+				a.paymentWatcher.paymentRecipient = newRecipient
+				a.paymentWatcher.paymentRecipientAssociatedTokenAddress = newpaymentRecipientAssociatedTokenAddress
 				lastIndex = meta.LastIndex
 				log.Logger.API.Infof("New payment recipient received: %s", newRecipient.String())
 			}

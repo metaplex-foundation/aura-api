@@ -21,18 +21,16 @@ type (
 		Port        uint64 `required:"true" split_words:"true"`
 		GRPCPort    uint64 `required:"true" split_words:"true"`
 		SwaggerPort uint64 `required:"true" split_words:"true"`
+
+		IsFrontendAPI bool `envconfig:"API_IS_FRONTEND_API" required:"true" split_words:"true"`
 	}
 )
 
 // struct field names are used for env variable names. Edit with care
 type (
 	PostgresConfig struct {
-		Host           string `required:"true" split_words:"true"`
-		User           string `required:"true" split_words:"true"`
-		Pass           string `required:"true" split_words:"true"`
-		DB             string `required:"true" split_words:"true"`
+		URL            string `required:"true" split_words:"true"`
 		MigrationsPath string `required:"true" split_words:"true"`
-		Port           uint64 `required:"true" split_words:"true"`
 	}
 	ClickhouseConfig struct {
 		DSN string `required:"true" split_words:"true"`

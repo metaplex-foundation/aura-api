@@ -84,7 +84,7 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, a.UserWithCurrentPlanFromDBModel(&u))
+	return c.JSON(http.StatusOK, a.UserWithCurrentPlanFromDBModel(&u, a.pricing, a.mplxPrice))
 }
 
 // createAPIKeyHandler godoc
@@ -481,7 +481,7 @@ func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, a.getSubscriptionsWithPricingList(subscriptionsList))
+	return c.JSON(http.StatusOK, getSubscriptionsWithPricingList(subscriptionsList, a.pricing, a.mplxPrice))
 }
 
 // getSubscriptionPlans godoc
@@ -618,7 +618,7 @@ func (a *api) getPaymentStatus(c echo.Context) (err error) {
 //	@Tags			payment
 //	@Produce		json
 //	@Param			limit	query		int64					false	"Payments per page. Default 10"
-//	@Param			page	query		int64					true	"Page number. Default 1"
+//	@Param			page	query		int64					false	"Page number. Default 1"
 //	@Success		200			{object}	PaymentStatusHistoryResponse	"Payment history"
 //	@Failure		400			{object}	error
 //	@Failure		401			{object}	error

@@ -20,7 +20,7 @@ clickhouse client -n <<-EOSQL
         timestamp DateTime,
         server_id String,
         provider String,
-        method_cost String,
+        method_cost Int64,
         chain String,
         response_size_bytes Int64,
         target_type String
