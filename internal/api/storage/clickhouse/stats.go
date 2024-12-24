@@ -110,7 +110,7 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 
 	stmt, err := tx.Prepare(`INSERT INTO stats (
 		user_uid,
-		prj_uuid,
+		tkn_uuid,
         request_uuid,
         status,
         execution_time_ms,
@@ -123,6 +123,8 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
         rpc_request_data,
         timestamp,
         server_id,
+        provider,
+        method_cost,
         chain,
         response_size_bytes,
         target_type
@@ -135,7 +137,7 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 	for _, stat := range stats {
 		_, err = stmt.Exec(
 			stat.GetUserUid(),
-			util.ParseUUIDOrDefault(stat.GetProjectUuid()),
+			util.ParseUUIDOrDefault(stat.GetTokenUuid()),
 			stat.GetRequestUuid(),
 			uint16(stat.GetStatus()),
 			stat.GetExecutionTimeMs(),
@@ -148,6 +150,8 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 			stat.GetRpcRequestData(),
 			stat.GetTimestamp().AsTime(),
 			s.serverID,
+			stat.GetProvider(),
+			stat.GetMethodCost(),
 			stat.GetChain(),
 			stat.GetResponseSizeBytes(),
 			stat.GetTargetType(),
