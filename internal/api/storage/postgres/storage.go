@@ -35,12 +35,11 @@ const (
 
 func New(ctx context.Context, cfg configtypes.PostgresConfig) (s Storage, err error) { //nolint:gocritic
 	// DialTimeout default is 5s
-	db := pg.Connect(&pg.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		User:     cfg.User,
-		Password: cfg.Pass,
-		Database: cfg.DB,
-	}).
+	options, err := pg.ParseURL(cfg.URL)
+	if err != nil {
+		return s, fmt.Errorf("ParseURL: %w", err)
+	}
+	db := pg.Connect(options).
 		WithContext(ctx).
 		WithTimeout(5 * time.Second)
 
