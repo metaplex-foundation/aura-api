@@ -10,6 +10,7 @@ services:
       - "${API_SWAGGER_PORT}:${API_SWAGGER_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
+      - ./ssl:/ssl
     env_file:
       - .env
     environment:
