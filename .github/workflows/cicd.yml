@@ -3,7 +3,7 @@ name: Aura-API
 on:
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   ci:
@@ -16,9 +16,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Define Application Variables
+        run: |
+          echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+
+      - name: Notify Start CI
+        uses: ./.github/actions/telegram
+        with:
+          message: "🚀 CI started for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
       - name: Run test
         run: make test
 
+      - name: Notify Test Passed
+        if: success()
+        uses: ./.github/actions/telegram
+        with:
+          message: "✅ Tests passed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Notify Test Failed
+        if: failure()
+        uses: ./.github/actions/telegram
+        with:
+          message: "❌ Tests failed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -31,40 +58,117 @@ jobs:
         env:
           REGISTRY: ghcr.io/${{ github.repository_owner }}
         run: make image push
-        
-      - name: Clean
-        run: make clean
-  
+
+      - name: Notify Build Complete
+        if: success()
+        uses: ./.github/actions/telegram
+        with:
+          message: "🐳 Docker image built and pushed successfully for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Notify Build Failed
+        if: failure()
+        uses: ./.github/actions/telegram
+        with:
+          message: "❌ Build failed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
   cd:
     name: Continuous Deployment
     needs: ci
     runs-on: ubuntu-latest
 
-    steps:  
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Define Application Variables
+        run: |
+          echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
 
-    - name: Define Application Variables
-      run: |
-        echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
-        echo "VERSION=$(git describe --tags --abbrev=0)-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Notify Start CD
+        uses: ./.github/actions/telegram
+        with:
+          message: "🚀 CD started for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-    - name: Validate YAML Files
-      uses: docker://cytopia/yamllint:latest
-      with:
-        args: docker-compose.yml
+      - name: Validate YAML Files
+        uses: docker://cytopia/yamllint:latest
+        with:
+          args: docker-compose.yml
 
-    - name: Update Docker Compose Image Tag
-      uses: mikefarah/yq@master
-      with:
-        cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
+      - name: Notify Validation Passed
+        if: success()
+        uses: ./.github/actions/telegram
+        with:
+          message: "✅ YAML validation passed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+  
+      - name: Notify Validation Failed
+        if: failure()
+        uses: ./.github/actions/telegram
+        with:
+          message: "❌ YAML validation failed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-    - name: Commit and Push Changes
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git commit -am "Update $APP version $VERSION"
-        git push
+      - name: Update Docker Compose Image Tag
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
+
+      - name: Notify Image Tag Updated
+        if: success()
+        uses: ./.github/actions/telegram
+        with:
+          message: "🔄 Docker Compose image tag updated for <b>${{ env.APP }}</b> to version <b>${{ env.VERSION }}</b>"
+          telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Commit and Push Changes
+        if: success()
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "Update $APP version to $VERSION"
+          git push
+          
+      - name: Checkout External Config Repository
+        uses: actions/checkout@v4
+        with:
+          repository: adm-metaex/aura-config-dev
+          token: ${{ secrets.LIMITED_GITHUB_PAT }}
+          fetch-depth: 0
+
+      - name: Update Aura Proxy Version
+        run: |
+          yq eval -i '.aura_proxy_version = env(VERSION)' versions.yml
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add versions.yml
+          git commit -m "Update aura_proxy_version to $VERSION"
+          git push
+
+      - name: Notify CD Complete
+        if: success()
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d parse_mode=HTML \
+          -d text="✅ CD complete. The <b>versions.yml</b> file has been successfully updated for <b>${{ env.APP }}</b> to version <b>${{ env.VERSION }}</b>."
+
+      - name: Notify CD Failed
+        if: failure()
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+          -d parse_mode=HTML \
+          -d text="❌ CD failed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
+  
