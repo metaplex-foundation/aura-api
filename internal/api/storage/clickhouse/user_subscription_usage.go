@@ -34,8 +34,9 @@ func (r CreditsUsageHistory) GetTimestamp() time.Time {
 func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) CreditsUsageHistory {
 	r.Timestamp = t
 	r.Networks = map[string]int64{
-		"aura":   0,
-		"solana": 0,
+		"eclipse":            0,
+		"solana":             0,
+		"getProgramAccounts": 0,
 	}
 
 	return r
@@ -185,6 +186,14 @@ func (s *Storage) GetCreditsUsageHistory(
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
+	}
+	// TODO: refactor
+	for i := range result {
+		for _, network := range []string{"solana", "eclipse", "getProgramAccounts"} {
+			if _, ok := result[i].Networks[network]; !ok {
+				result[i].Networks[network] = 0
+			}
+		}
 	}
 	return fillGaps(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
