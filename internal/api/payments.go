@@ -108,6 +108,7 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 	}
 }
 
+// TODO: consider user reusing reference in multiple txs
 func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 	allNewSignatures, err := p.fetchNewTransactionSignatures(ctx)
 	if err != nil {
@@ -145,8 +146,9 @@ func (p *paymentsWatcher) fetchNewTransactionSignatures(ctx context.Context) (al
 
 	for unfetchedSignaturesLeft {
 		cfg := rpc.GetSignaturesForAddressOpts{
-			Until:  p.lastProcessedSignature,
-			Before: beforeSig,
+			Commitment: rpc.CommitmentFinalized,
+			Until:      p.lastProcessedSignature,
+			Before:     beforeSig,
 		}
 		sigs, err := p.rpcClient.GetSignaturesForAddressWithOpts(ctx, p.paymentRecipientAssociatedTokenAddress, &cfg)
 		if err != nil {

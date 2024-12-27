@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,17 +50,21 @@ func (s *Storage) UpdatePayments(ctx context.Context, transfers []TransferInfo) 
 		return nil
 	}
 
+	// TODO: consider SELECT FOR UPDATE
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("beginTx: %s", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	for _, transfer := range transfers {
-		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_paid_at = now() WHERE crp_reference = ? RETURNING usr_id`
+		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_paid_at = now() WHERE crp_reference = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL RETURNING usr_id`
 		var payment CryptoPayment
-		_, err = tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Reference.String())
+		res, err := tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Reference.String())
 		if err != nil {
-			return fmt.Errorf("ExecOneContext 1: %s", err)
+			return fmt.Errorf("QueryOneContext 1: %s", err)
+		}
+		if res.RowsAffected() != 1 {
+			return errors.New("RowsAffected != 1")
 		}
 
 		query = `UPDATE users SET usr_mplx_balance = usr_mplx_balance + ? WHERE usr_id = ?`
