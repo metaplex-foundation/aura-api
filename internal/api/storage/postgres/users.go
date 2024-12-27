@@ -145,6 +145,7 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 	}
 	defer tx.Rollback() //nolint:errcheck
 
+	// TODO: sort items in map
 	for userID, chains := range req.GetReqs() {
 		// Sum all credits for the user
 		var totalCredits int64

@@ -222,6 +222,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	}
 	go chStorage.RunStatsAggregator(ctx)
 	go a.listenConsul(ctx)
+	// TODO: consider consul
 	if cfg.API.IsFrontendAPI {
 		go paymentWatcher.watchPayments(ctx)
 	}

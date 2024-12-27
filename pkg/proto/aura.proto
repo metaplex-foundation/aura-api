@@ -57,6 +57,7 @@ message UserRequestsByToken {
 message RequestsWithUsage {
   int64 reqs = 1;
   int64 usage = 2;
+  bool is_mainnet = 3;
 }
 
 message GetUserInfoReq {
