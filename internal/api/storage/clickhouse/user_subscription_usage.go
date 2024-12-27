@@ -74,16 +74,19 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]*auraProto.Us
 	timeNow := time.Now()
 	for userUID, reqChain := range reqs {
 		for chain, reqToken := range reqChain.GetReqs() {
-			for token, usedCredits := range reqToken.GetReqs() {
-				_, err = stmt.Exec(
-					timeNow,
-					userUID,
-					usedCredits,
-					chain,
-					token,
-				)
-				if err != nil {
-					return fmt.Errorf("exec statement error: %s", err)
+			for token, reqWithUsage := range reqToken.GetReqs() {
+				usage := reqWithUsage.GetUsage()
+				if usage > 0 {
+					_, err = stmt.Exec(
+						timeNow,
+						userUID,
+						usage,
+						chain,
+						token,
+					)
+					if err != nil {
+						return fmt.Errorf("exec statement error: %s", err)
+					}
 				}
 			}
 		}
