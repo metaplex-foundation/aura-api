@@ -32,6 +32,7 @@ const (
 	referenceParam          = "reference"
 	pageParam               = "page"
 	limitParam              = "limit"
+	isMainnetParam          = "is_mainnet"
 )
 
 var (
@@ -364,7 +365,7 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 		return err
 	}
 
-	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -401,7 +402,7 @@ func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	requestsVolumeHistory, err := a.chStorage.GetRequestsVolumeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	requestsVolumeHistory, err := a.chStorage.GetRequestsVolumeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetRequestsVolumeHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -438,7 +439,7 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	creditsUsageHistory, err := a.chStorage.GetCreditsUsageHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	creditsUsageHistory, err := a.chStorage.GetCreditsUsageHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetCreditsUsageHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)

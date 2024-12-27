@@ -140,6 +140,7 @@ func (s *Storage) GetCreditsUsageHistory(
 	rpcMethod *string,
 	startTime time.Time,
 	granularity string,
+	isMainnet *bool,
 ) (result []CreditsUsageHistory, err error) {
 	if userUID == "" {
 		return result, ErrEmptyUserUUID
@@ -161,7 +162,7 @@ func (s *Storage) GetCreditsUsageHistory(
 	} else {
 		builder = builder.Columns("toDateTime(toDate(time)) as ts")
 	}
-	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true)
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true, isMainnet)
 
 	sqlQuery, args, err := builder.ToSql()
 	if err != nil {

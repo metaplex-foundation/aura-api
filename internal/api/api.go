@@ -112,7 +112,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
-	//panic(chStorage.InsertMockedData(100000))
+	//panic(chStorage.InsertMockData(100000))
 
 	emailSender := email.NewEmailSender(cfg.API.EmailToken)
 	cacheInstance := cache.New(cacheTTL, cacheTTL)

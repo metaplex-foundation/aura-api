@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -78,6 +79,7 @@ type (
 		TokenUUID   *uuid.UUID
 		Network     *string
 		RPCMethod   *string
+		IsMainnet   *bool
 	}
 	UpdateSubscriptionParams struct {
 		SubscriptionID int64 `json:"subscription_id"`
@@ -199,6 +201,14 @@ func (s *StatsRequestParams) Bind(c echo.Context, availableNetworks map[string]i
 			return echo.NewHTTPError(http.StatusBadRequest, "Required to select network when selecting rpc_method")
 		}
 		s.RPCMethod = &methodParamString
+	}
+	isMainnetString := c.QueryParam(isMainnetParam)
+	if isMainnetString != "" {
+		isMainnet, err := strconv.ParseBool(isMainnetString)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid %s param: %s", isMainnetParam, err))
+		}
+		s.IsMainnet = &isMainnet
 	}
 
 	return nil
