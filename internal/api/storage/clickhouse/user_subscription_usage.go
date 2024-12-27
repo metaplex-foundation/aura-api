@@ -35,6 +35,8 @@ func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uui
 	r.Networks = map[string]int64{
 		"eclipse":            0,
 		"solana":             0,
+		"solana-das":         0,
+		"eclipse-das":        0,
 		"getProgramAccounts": 0,
 	}
 
@@ -161,7 +163,7 @@ func (s *Storage) GetCreditsUsageHistory(
 	}
 	// TODO: refactor
 	for i := range result {
-		for _, network := range []string{"solana", "eclipse", "getProgramAccounts"} {
+		for _, network := range []string{"solana", "eclipse", "getProgramAccounts", "solana-das", "eclipse-das"} {
 			if _, ok := result[i].Networks[network]; !ok {
 				result[i].Networks[network] = 0
 			}
