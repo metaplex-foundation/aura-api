@@ -2,7 +2,7 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api/aura-api:v0.0.4-10b1642
+    image: ghcr.io/adm-metaex/aura-api/aura-api:v0.0.4-3c50373
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
