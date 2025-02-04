@@ -23,7 +23,9 @@ clickhouse client -n <<-EOSQL
         method_cost Int64,
         chain String,
         response_size_bytes Int64,
-        target_type String
+        target_type String,
+        is_mainnet UInt8,
+        subscription_id Int64
     ) ENGINE = ReplacingMergeTree()
           ORDER BY (user_uid, tkn_uuid, request_uuid);
 
@@ -79,5 +81,30 @@ clickhouse client -n <<-EOSQL
         tkn_uuid     UUID,
         used_credits Int64
     ) ENGINE = ReplacingMergeTree()
-          ORDER BY (time, user_uid, tkn_uuid, chain);
+          ORDER BY (time, user_uid, tkn_uuid, chain, is_mainnet);
+
+    create table if not exists aura.aggregated_usage_data
+    (
+        time DateTime,
+        users_total Int64,
+        total_free_subscriptions Int64,
+        total_developer_subscriptions Int64,
+        total_advanced_subscriptions Int64,
+        total_pro_subscriptions Int64,
+        total_not_used_mplx Int64
+    ) ENGINE = ReplacingMergeTree()
+        ORDER BY (time)
+        SETTINGS allow_nullable_key = 1;
+
+    create table if not exists aura.aggregated_providers_stats
+    (
+        time DateTime,
+        provider String,
+        chain String,
+        is_mainnet bool,
+        total_free_requests Int64,
+        total_paid_requests Int64
+    ) ENGINE = ReplacingMergeTree()
+        ORDER BY (time, provider, chain)
+        SETTINGS allow_nullable_key = 1;
 EOSQL

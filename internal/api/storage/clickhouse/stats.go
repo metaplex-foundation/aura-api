@@ -127,7 +127,9 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
         method_cost,
         chain,
         response_size_bytes,
-        target_type
+        target_type,
+        is_mainnet,
+		subscription_id
 	)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement error: %s", err)
@@ -155,6 +157,8 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 			stat.GetChain(),
 			stat.GetResponseSizeBytes(),
 			stat.GetTargetType(),
+			stat.GetIsMainnet(),
+			stat.GetSubscriptionId(),
 		)
 		if err != nil {
 			return fmt.Errorf("exec statement error: %s", err)
