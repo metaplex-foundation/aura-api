@@ -127,7 +127,8 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
         method_cost,
         chain,
         response_size_bytes,
-        target_type
+        target_type,
+        is_mainnet
 	)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement error: %s", err)
@@ -155,6 +156,7 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 			stat.GetChain(),
 			stat.GetResponseSizeBytes(),
 			stat.GetTargetType(),
+			stat.GetIsMainnet(),
 		)
 		if err != nil {
 			return fmt.Errorf("exec statement error: %s", err)
@@ -193,8 +195,11 @@ func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
 	return nil
 }
 
-func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid.UUID, chain *string, rpcMethod *string, isFromStats bool) sq.SelectBuilder {
+func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid.UUID, chain *string, rpcMethod *string, isFromStats bool, isMainnet *bool) sq.SelectBuilder {
 	builder = builder.Where(sq.Eq{"user_uid": userUID})
+	if isMainnet != nil || (isMainnet == nil && !isFromStats) {
+		builder = builder.Where(sq.Eq{"is_mainnet": isMainnet}).GroupBy("is_mainnet")
+	}
 
 	var tkn uuid.UUID
 	if tknUUID != nil {
@@ -233,6 +238,7 @@ func (s *Storage) prepareHistoryQuery(
 	granularity string,
 	aggregatedColumns []string,
 	statsColumns []string,
+	isMainnet *bool,
 ) (sqlQuery string, args []interface{}, err error) {
 	if userUID == "" {
 		return sqlQuery, args, ErrEmptyUserUUID
@@ -241,7 +247,7 @@ func (s *Storage) prepareHistoryQuery(
 	isAggregated := (diff > dailyThreshold && granularity == DailyGranularity) || (diff > hourlyThreshold && granularity == HourlyGranularity)
 
 	if isAggregated {
-		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime, aggregatedColumns)
+		oldSQL, oldArgs, err := s.buildAggregatedQuery(userUID, tknUUID, chain, rpcMethod, granularity, startTime, aggregatedColumns, isMainnet)
 		if err != nil {
 			return sqlQuery, args, fmt.Errorf("buildAggregatedQuery: %s", err)
 		}
@@ -253,6 +259,7 @@ func (s *Storage) prepareHistoryQuery(
 			rpcMethod,
 			granularity,
 			statsColumns,
+			isMainnet,
 		)
 		if err != nil {
 			return sqlQuery, args, fmt.Errorf("buildStatsQuery (aggregated case): %s", err)
@@ -269,6 +276,7 @@ func (s *Storage) prepareHistoryQuery(
 			rpcMethod,
 			granularity,
 			statsColumns,
+			isMainnet,
 		)
 		if err != nil {
 			return sqlQuery, args, fmt.Errorf("buildStatsQuery (non-aggregated): %s", err)
@@ -285,6 +293,7 @@ func (s *Storage) GetRequestsVolumeHistory(
 	rpcMethod *string,
 	startTime time.Time,
 	granularity string,
+	isMainnet *bool,
 ) (result []RequestsVolumeHistory, err error) {
 	sqlQuery, args, err := s.prepareHistoryQuery(
 		userUID,
@@ -295,6 +304,7 @@ func (s *Storage) GetRequestsVolumeHistory(
 		granularity,
 		[]string{"total_req", "http_err + rpc_err AS total_err"},                                                   // aggregatedColumns
 		[]string{"count(*) AS total_req", "countIf(status != 200) +  countIf(rpc_error_code != '0') AS total_err"}, // statsColumns
+		isMainnet,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("prepareHistoryQuery: %s", err)
@@ -327,6 +337,7 @@ func (s *Storage) GetResponseTimeHistory(
 	rpcMethod *string,
 	startTime time.Time,
 	granularity string,
+	isMainnet *bool,
 ) (result []ResponseTimeHistory, err error) {
 	sqlQuery, args, err := s.prepareHistoryQuery(
 		userUID,
@@ -340,6 +351,7 @@ func (s *Storage) GetResponseTimeHistory(
 			"toInt64(avg(response_time_ms)) as avg_response_time_ms",
 			"toInt64(quantileTiming(0.95)(response_time_ms)) as p95_response_time_ms",
 		}, // statsColumns
+		isMainnet,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("prepareHistoryQuery: %s", err)
@@ -373,9 +385,10 @@ func (s *Storage) buildAggregatedQuery(
 	granularity string,
 	startTime time.Time,
 	columnsToSelect []string,
+	isMainnet *bool,
 ) (string, []interface{}, error) {
 	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
-	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, false)
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, false, isMainnet)
 	table := userHourlyAggregatedTableName
 	if granularity == DailyGranularity {
 		table = userDailyAggregatedTableName
@@ -407,9 +420,10 @@ func (s *Storage) buildStatsQuery(
 	rpcMethod *string,
 	granularity string,
 	columnsToSelect []string,
+	isMainnet *bool,
 ) (string, []interface{}, error) {
 	builder := sq.Select().PlaceholderFormat(sq.Question).OrderBy("ts")
-	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true)
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true, isMainnet)
 	builder = builder.From("aura.stats")
 
 	if rpcMethod != nil {

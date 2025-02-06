@@ -137,23 +137,41 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	return u, nil
 }
 
+// UpdateUserBalances use context.Background in order not to cancel queries
 func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) error {
+	tx, err := s.BeginTx(context.Background())
+	if err != nil {
+		return fmt.Errorf("beginTx: %s", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// TODO: sort items in map
 	for userID, chains := range req.GetReqs() {
 		// Sum all credits for the user
 		var totalCredits int64
-		for _, chain := range chains.GetReqs() {
-			for _, tokens := range chain.GetReqs() {
-				totalCredits += tokens
+		for _, tokens := range chains.GetReqs() {
+			for token, reqWithUsage := range tokens.GetReqs() {
+				query := `UPDATE user_api_keys SET uak_total_requests = uak_total_requests + ?, uak_last_used_at = now() WHERE uak_token = ?`
+				_, err = tx.db.Exec(query, reqWithUsage.GetReqs(), token)
+				if err != nil {
+					return fmt.Errorf("exec token %s: %w", token, err)
+				}
+				totalCredits += reqWithUsage.GetUsage()
 			}
 		}
 
 		query := `UPDATE users
 			SET usr_mplx_balance = GREATEST(usr_mplx_balance - ?, 0)
 			WHERE usr_dynamic_id = ?`
-		_, err := s.db.Exec(query, totalCredits, userID)
+		_, err = tx.db.Exec(query, totalCredits, userID)
 		if err != nil {
-			return fmt.Errorf("ExecContext user %s: %w", userID, err)
+			return fmt.Errorf("exec user %s: %w", userID, err)
 		}
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return fmt.Errorf("commit: %s", err)
 	}
 
 	return nil
