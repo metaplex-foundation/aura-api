@@ -23,7 +23,8 @@ clickhouse client -n <<-EOSQL
         method_cost Int64,
         chain String,
         response_size_bytes Int64,
-        target_type String
+        target_type String,
+        is_mainnet UInt8
     ) ENGINE = ReplacingMergeTree()
           ORDER BY (user_uid, tkn_uuid, request_uuid);
 
@@ -31,13 +32,16 @@ clickhouse client -n <<-EOSQL
         chain String,
         rpc_method String,
         rpc_request_data String,
+        provider String,
         day Date,
         execution_time_ms Int64,
         response_time_ms Int64,
         p95_response_time_ms Int64,
-        total_req UInt64
+        total_req UInt64,
+        is_mainnet Nullable(bool)
     ) ENGINE = ReplacingMergeTree()
-          ORDER BY (chain, rpc_method, rpc_request_data, day);
+          ORDER BY (chain, is_mainnet, provider, rpc_method, rpc_request_data, day)
+          SETTINGS allow_nullable_key = 1;
 
     create table if not exists aura.aggregated_user_daily_data (
             user_uid String,
@@ -51,9 +55,11 @@ clickhouse client -n <<-EOSQL
             rpc_err UInt64,
             response_size_bytes Int64,
             avg_response_time_ms Int64,
-            p95_response_time_ms Int64
+            p95_response_time_ms Int64,
+            is_mainnet Nullable(bool)
     ) ENGINE = ReplacingMergeTree()
-          ORDER BY (user_uid, tkn_uuid, day, rpc_method, chain);
+          ORDER BY (user_uid, tkn_uuid, day, rpc_method, chain, is_mainnet)
+          SETTINGS allow_nullable_key = 1;
 
     create table if not exists aura.aggregated_user_hourly_data (
         user_uid String,
@@ -67,9 +73,11 @@ clickhouse client -n <<-EOSQL
         rpc_err UInt64,
         response_size_bytes Int64,
         avg_response_time_ms Int64,
-        p95_response_time_ms Int64
+        p95_response_time_ms Int64,
+        is_mainnet Nullable(bool)
     ) ENGINE = ReplacingMergeTree()
-          ORDER BY (user_uid, tkn_uuid, timestamp, rpc_method, chain);
+          ORDER BY (user_uid, tkn_uuid, timestamp, rpc_method, chain, is_mainnet)
+          SETTINGS allow_nullable_key = 1;
 
     create table if not exists aura.user_subscription_usage
     (
@@ -77,7 +85,9 @@ clickhouse client -n <<-EOSQL
         chain        String,
         user_uid     String,
         tkn_uuid     UUID,
-        used_credits Int64
+        used_credits Int64,
+        is_mainnet   Nullable(bool)
     ) ENGINE = ReplacingMergeTree()
-          ORDER BY (time, user_uid, tkn_uuid, chain);
+          ORDER BY (time, user_uid, tkn_uuid, chain, is_mainnet)
+          SETTINGS allow_nullable_key = 1;
 EOSQL
