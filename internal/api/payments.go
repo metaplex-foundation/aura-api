@@ -225,6 +225,17 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 						return result, fmt.Errorf("getTransferredAmount: %s", err)
 					}
 					result.Amount = amount
+
+					// check if there is reference in Transfer instruction
+					// in case API started to check old transactions
+					// new payment transactions will put reference into memo
+					for _, accountKey := range parsedTx.Message.AccountKeys {
+						if _, ok := p.unpaidReferences[accountKey.String()]; ok {
+							if accountKey != solana.SystemProgramID {
+								result.Reference = accountKey
+							}
+						}
+					}
 				}
 			case memo.ProgramID:
 				{
