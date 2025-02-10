@@ -52,7 +52,13 @@ message UserRequestsByChain {
 }
 
 message UserRequestsByToken {
-  map<string, int64> reqs = 1;
+  map<string, RequestsWithUsage> reqs = 1;
+}
+
+message RequestsWithUsage {
+  int64 reqs = 1;
+  int64 usage = 2;
+  bool is_mainnet = 3;
 }
 
 message GetUserInfoReq {

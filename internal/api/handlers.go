@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
@@ -33,6 +32,7 @@ const (
 	referenceParam          = "reference"
 	pageParam               = "page"
 	limitParam              = "limit"
+	isMainnetParam          = "is_mainnet"
 )
 
 var (
@@ -144,9 +144,6 @@ func (a *api) createAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("createAPIKeyHandler: CreateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	lastUsed := time.Now()
-	apiKey.LastUsed = &lastUsed
-	apiKey.TotalRequests = 1000
 
 	return c.JSON(http.StatusCreated, apiKey)
 }
@@ -184,9 +181,6 @@ func (a *api) apiKeyHandler(c echo.Context) (err error) { //nolint:dupl
 		log.Logger.API.Errorf("apiKeyHandler: GetAPIKeyByTokenAndUserDynamicID: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	lastUsed := time.Now()
-	apiKey.LastUsed = &lastUsed
-	apiKey.TotalRequests = 1000
 
 	return c.JSON(http.StatusOK, apiKey)
 }
@@ -241,12 +235,6 @@ func (a *api) apiKeysHandler(c echo.Context) (err error) {
 			return echo.NewHTTPError(http.StatusInternalServerError)
 		}
 		apiKeys = append(apiKeys, apiKey)
-	}
-	// TODO: remove
-	for i := range apiKeys {
-		lastUsed := time.Now()
-		apiKeys[i].LastUsed = &lastUsed
-		apiKeys[i].TotalRequests = 1000
 	}
 
 	return c.JSON(http.StatusOK, apiKeys)
@@ -306,9 +294,6 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateAPIKeyHandler: UpdateAPIKey: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	lastUsed := time.Now()
-	apiKey.LastUsed = &lastUsed
-	apiKey.TotalRequests = 1000
 
 	return c.JSON(http.StatusOK, apiKey)
 }
@@ -380,7 +365,7 @@ func (a *api) getAPIResponseTimes(c echo.Context) (err error) {
 		return err
 	}
 
-	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	responseTimeHistory, err := a.chStorage.GetResponseTimeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetResponseTimeHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -417,7 +402,7 @@ func (a *api) getAPIRequestsVolume(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	requestsVolumeHistory, err := a.chStorage.GetRequestsVolumeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	requestsVolumeHistory, err := a.chStorage.GetRequestsVolumeHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetRequestsVolumeHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -454,7 +439,7 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	creditsUsageHistory, err := a.chStorage.GetCreditsUsageHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity)
+	creditsUsageHistory, err := a.chStorage.GetCreditsUsageHistory(user.ID, params.TokenUUID, params.Network, params.RPCMethod, params.StartTime, params.Granularity, params.IsMainnet)
 	if err != nil {
 		log.Logger.API.Errorf("GetCreditsUsageHistory: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)

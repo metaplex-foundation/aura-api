@@ -65,8 +65,9 @@ func (s *Storage) InsertMockData(count int) error {
 		server_id,
 		chain,
 		response_size_bytes,
-		target_type
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		target_type,
+	    is_mainnet
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	tx, err := s.conn.BeginTx(ctx, nil)
@@ -134,6 +135,10 @@ func (s *Storage) InsertMockData(count int) error {
 		rpcRequestData := "{\"param\":\"value\"}"
 		targetType := "rpc"
 
+		var isMainnet bool
+		if rand.Intn(2) == 0 {
+			isMainnet = true
+		}
 		_, err = stmt.ExecContext(ctx,
 			userUID,
 			tkn,
@@ -152,6 +157,7 @@ func (s *Storage) InsertMockData(count int) error {
 			chain,
 			responseSize,
 			targetType,
+			isMainnet,
 		)
 		if err != nil {
 			return fmt.Errorf("exec: %w", err)
@@ -180,7 +186,7 @@ func (s *Storage) InsertMockedData(count int) error {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO aura.user_subscription_usage (time, chain, user_uid, tkn_uuid, used_credits) VALUES (?, ?, ?, ?, ?)`)
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO aura.user_subscription_usage (time, chain, user_uid, tkn_uuid, used_credits, is_mainnet) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("failed to prepare statement: %w", err)
@@ -209,8 +215,11 @@ func (s *Storage) InsertMockedData(count int) error {
 
 		// Випадковий used_credits від 0 до 100
 		usedCredits := rand.Int63n(101) // [0,100]
-
-		_, err := stmt.ExecContext(ctx, randomTime, chain, userUID, chosenTkn, usedCredits)
+		var isMainnet bool
+		if rand.Intn(2) == 0 {
+			isMainnet = true
+		}
+		_, err := stmt.ExecContext(ctx, randomTime, chain, userUID, chosenTkn, usedCredits, isMainnet)
 		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to insert row: %w", err)
@@ -244,11 +253,18 @@ func (s *Storage) AggregateUserDataHourly(ctx context.Context, aggregateOnlyRece
 	    countIf(rpc_error_code != '0') AS rpc_err,
 	    sum(response_size_bytes) AS response_size_bytes,
 	    avg(response_time_ms) AS avg_response_time_ms,
-	    quantileTiming(0.95)(response_time_ms) AS p95_response_time_ms
+	    quantileTiming(0.95)(response_time_ms) AS p95_response_time_ms,
+	    is_mainnet,
 	FROM aura.stats
 	WHERE timestamp < date_trunc('hour', now()) %s
 	GROUP BY GROUPING SETS (
-		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain),
+		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, is_mainnet),
+		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), chain, is_mainnet),
+		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), is_mainnet),
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, is_mainnet),
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), chain, is_mainnet),
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), is_mainnet),
+	    	(user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain),
 		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), chain),
 		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp))),
 		    (user_uid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain),
@@ -290,10 +306,17 @@ func (s *Storage) AggregateUserDataDaily(ctx context.Context, aggregateOnlyRecen
 	    countIf(rpc_error_code != '0') AS rpc_err,
 	    sum(response_size_bytes) AS response_size_bytes,
 	    avg(response_time_ms) AS avg_response_time_ms,
-	    quantileTiming(0.95)(response_time_ms) AS p95_response_time_ms
+	    quantileTiming(0.95)(response_time_ms) AS p95_response_time_ms,
+		is_mainnet
 	FROM aura.stats
 	WHERE toDate(timestamp) < toDate(now(), 'Etc/UTC') %s
 	GROUP BY GROUPING SETS (
+	    (user_uid, tkn_uuid, toDate(timestamp), rpc_method, chain, is_mainnet),
+	    (user_uid, tkn_uuid, toDate(timestamp), chain, is_mainnet),
+	    (user_uid, tkn_uuid, toDate(timestamp), is_mainnet),
+	    (user_uid, toDate(timestamp), rpc_method, chain, is_mainnet),
+	    (user_uid, toDate(timestamp), chain, is_mainnet),
+	    (user_uid, toDate(timestamp), is_mainnet),
 	    (user_uid, tkn_uuid, toDate(timestamp), rpc_method, chain),
 	    (user_uid, tkn_uuid, toDate(timestamp), chain),
 	    (user_uid, tkn_uuid, toDate(timestamp)),

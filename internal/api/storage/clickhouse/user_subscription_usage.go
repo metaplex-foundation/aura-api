@@ -1,7 +1,6 @@
 package clickhouse
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -34,8 +33,11 @@ func (r CreditsUsageHistory) GetTimestamp() time.Time {
 func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uuid.UUID, t time.Time) CreditsUsageHistory {
 	r.Timestamp = t
 	r.Networks = map[string]int64{
-		"aura":   0,
-		"solana": 0,
+		"eclipse":            0,
+		"solana":             0,
+		"solana-das":         0,
+		"eclipse-das":        0,
+		"getProgramAccounts": 0,
 	}
 
 	return r
@@ -63,7 +65,8 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]*auraProto.Us
 		user_uid,
         used_credits,
         chain,
-        tkn_uuid                             
+        tkn_uuid,
+        is_mainnet
 	)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement error: %s", err)
@@ -73,16 +76,20 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]*auraProto.Us
 	timeNow := time.Now()
 	for userUID, reqChain := range reqs {
 		for chain, reqToken := range reqChain.GetReqs() {
-			for token, usedCredits := range reqToken.GetReqs() {
-				_, err = stmt.Exec(
-					timeNow,
-					userUID,
-					usedCredits,
-					chain,
-					token,
-				)
-				if err != nil {
-					return fmt.Errorf("exec statement error: %s", err)
+			for token, reqWithUsage := range reqToken.GetReqs() {
+				usage := reqWithUsage.GetUsage()
+				if usage > 0 {
+					_, err = stmt.Exec(
+						timeNow,
+						userUID,
+						usage,
+						chain,
+						token,
+						reqWithUsage.GetIsMainnet(),
+					)
+					if err != nil {
+						return fmt.Errorf("exec statement error: %s", err)
+					}
 				}
 			}
 		}
@@ -96,39 +103,6 @@ func (s *Storage) BatchInsertUserSubscriptionUsage(reqs map[string]*auraProto.Us
 	return nil
 }
 
-func (s *Storage) SelectUserSubscriptionUsage(ctx context.Context, userUID string, start, end time.Time) (res []UserSubscriptionUsage, err error) {
-	if userUID == "" {
-		return nil, ErrEmptyUserUUID
-	}
-
-	q := `SELECT toDate(time) AS date, sum(used_credits) FROM user_subscription_usage
-		WHERE time >= ? AND time < ? AND user_uid = ?
-		GROUP BY date, user_uid
-		ORDER BY date`
-
-	rows, err := s.conn.QueryContext(ctx, q, start, end, userUID)
-	if err != nil {
-		return res, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var r UserSubscriptionUsage
-		err = rows.Scan(&r.Date.Time, &r.Value)
-		if err != nil {
-			return res, err
-		}
-
-		res = append(res, r)
-	}
-
-	if err := rows.Err(); err != nil {
-		return res, err
-	}
-
-	return
-}
-
 func (s *Storage) GetCreditsUsageHistory(
 	userUID string,
 	tknUUID *uuid.UUID,
@@ -136,6 +110,7 @@ func (s *Storage) GetCreditsUsageHistory(
 	rpcMethod *string,
 	startTime time.Time,
 	granularity string,
+	isMainnet *bool,
 ) (result []CreditsUsageHistory, err error) {
 	if userUID == "" {
 		return result, ErrEmptyUserUUID
@@ -157,7 +132,7 @@ func (s *Storage) GetCreditsUsageHistory(
 	} else {
 		builder = builder.Columns("toDateTime(toDate(time)) as ts")
 	}
-	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true)
+	builder = buildWhereCondition(builder, userUID, tknUUID, chain, rpcMethod, true, isMainnet)
 
 	sqlQuery, args, err := builder.ToSql()
 	if err != nil {
@@ -185,6 +160,14 @@ func (s *Storage) GetCreditsUsageHistory(
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
+	}
+	// TODO: refactor
+	for i := range result {
+		for _, network := range []string{"solana", "eclipse", "getProgramAccounts", "solana-das", "eclipse-das"} {
+			if _, ok := result[i].Networks[network]; !ok {
+				result[i].Networks[network] = 0
+			}
+		}
 	}
 	return fillGaps(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
