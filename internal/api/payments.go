@@ -175,26 +175,26 @@ func (p *paymentsWatcher) fetchNewTransactionSignatures(ctx context.Context) (al
 	return allNewSignatures, nil
 }
 
-func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Signature) (transfers postgres.TransferInfo, err error) {
+func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Signature) (transfer postgres.TransferInfo, err error) {
 	txResp, err := p.rpcClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
 		Encoding:   solana.EncodingBase64,
 		Commitment: rpc.CommitmentFinalized,
 	})
 	if err != nil {
 		// Node error. Need to retry later
-		return transfers, fmt.Errorf("GetTransaction %s: %s", sig, err)
+		return transfer, fmt.Errorf("GetTransaction %s: %s", sig, err)
 	}
 	if txResp == nil || txResp.Transaction == nil {
 		// Cannot fetch transaction from node. Maybe need to retry later
-		return transfers, fmt.Errorf("empty transaction for signature: %s", sig)
+		return transfer, fmt.Errorf("empty transaction for signature: %s", sig)
 	}
-	transfers, err = p.parseTransaction(*txResp)
+	transfer, err = p.parseTransaction(*txResp)
 	if err != nil {
 		// Error while parsing tx. Maybe the wrong tx format returned. Need to retry
-		return transfers, fmt.Errorf("parseTransaction: %s", err)
+		return transfer, fmt.Errorf("parseTransaction: %s", err)
 	}
 
-	return transfers, nil
+	return transfer, nil
 }
 
 func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (result postgres.TransferInfo, err error) {
@@ -243,7 +243,9 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 					if err != nil {
 						return result, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
 					}
-					result.Reference = reference
+					if _, ok := p.unpaidReferences[reference.String()]; ok {
+						result.Reference = reference
+					}
 				}
 			default:
 				// unknown program
