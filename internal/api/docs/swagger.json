@@ -335,8 +335,7 @@
                         "type": "integer",
                         "description": "Page number. Default 1",
                         "name": "page",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -435,8 +434,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Reference address",
-                        "name": "reference",
+                        "description": "Memo address",
+                        "name": "memo",
                         "in": "query",
                         "required": true
                     }
@@ -840,13 +839,13 @@
                 "created_at": {
                     "type": "string"
                 },
+                "memo": {
+                    "type": "string"
+                },
                 "mplx_amount": {
                     "type": "integer"
                 },
                 "paid_at": {
-                    "type": "string"
-                },
-                "reference": {
                     "type": "string"
                 },
                 "signature": {

@@ -11,14 +11,14 @@ import (
 
 type TransferInfo struct {
 	Signature solana.Signature
-	Reference solana.PublicKey
+	Memo      solana.PublicKey
 	Amount    int64
 }
 
 type (
 	CryptoPayment struct {
 		ID         int64      `pg:"crp_id" json:"-"`
-		Reference  string     `pg:"crp_reference" json:"reference"`
+		Memo       string     `pg:"crp_memo" json:"memo"`
 		Signature  *string    `pg:"crp_signature" json:"signature"`
 		UserID     int64      `pg:"usr_id" json:"-"`
 		MplxAmount *int64     `pg:"crp_mplx_amount" json:"mplx_amount"`
@@ -35,9 +35,9 @@ const (
 	paymentsTable = "crypto_payments"
 )
 
-func (s *Storage) CreateUnconfirmedPayment(ctx context.Context, reference solana.PublicKey, userID, mplxAmount int64) (err error) {
-	query := `INSERT INTO crypto_payments (crp_reference, usr_id, crp_mplx_amount) VALUES (?, ?, ?)`
-	_, err = s.db.ExecOneContext(ctx, query, reference.String(), userID, mplxAmount)
+func (s *Storage) CreateUnconfirmedPayment(ctx context.Context, memo solana.PublicKey, userID, mplxAmount int64) (err error) {
+	query := `INSERT INTO crypto_payments (crp_memo, usr_id, crp_mplx_amount) VALUES (?, ?, ?)`
+	_, err = s.db.ExecOneContext(ctx, query, memo.String(), userID, mplxAmount)
 	if err != nil {
 		return fmt.Errorf("QueryOneContext: %w", err)
 	}
@@ -57,9 +57,9 @@ func (s *Storage) UpdatePayments(ctx context.Context, transfers []TransferInfo) 
 	}
 	defer tx.Rollback() //nolint:errcheck
 	for _, transfer := range transfers {
-		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_paid_at = now() WHERE crp_reference = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL RETURNING usr_id`
+		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_paid_at = now() WHERE crp_memo = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL RETURNING usr_id`
 		var payment CryptoPayment
-		res, err := tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Reference.String())
+		res, err := tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Memo.String())
 		if err != nil {
 			return fmt.Errorf("QueryOneContext 1: %s", err)
 		}
@@ -99,25 +99,25 @@ func (s *Storage) FetchLastProcessedSignature(ctx context.Context) (sig solana.S
 	return sig, nil
 }
 
-func (s *Storage) FetchAllUnpaidReferences(ctx context.Context) (references map[string]struct{}, err error) {
-	query := `SELECT crp_reference FROM crypto_payments WHERE crp_paid_at IS NULL`
+func (s *Storage) FetchAllUnpaidMemos(ctx context.Context) (memos map[string]struct{}, err error) {
+	query := `SELECT crp_memo FROM crypto_payments WHERE crp_paid_at IS NULL`
 	var payments []CryptoPayment
 	_, err = s.db.QueryContext(ctx, &payments, query)
 	if err != nil {
-		return references, fmt.Errorf("QueryContext: %w", err)
+		return memos, fmt.Errorf("QueryContext: %w", err)
 	}
-	references = make(map[string]struct{}, len(payments))
+	memos = make(map[string]struct{}, len(payments))
 	for i := range payments {
-		references[payments[i].Reference] = struct{}{}
+		memos[payments[i].Memo] = struct{}{}
 	}
 
-	return references, nil
+	return memos, nil
 }
 
-func (s *Storage) CheckIfReferencePaid(ctx context.Context, reference string) (isPaid bool, err error) {
-	query := `SELECT crp_paid_at FROM crypto_payments WHERE crp_reference = ?`
+func (s *Storage) CheckIfMemoPaid(ctx context.Context, memo string) (isPaid bool, err error) {
+	query := `SELECT crp_paid_at FROM crypto_payments WHERE crp_memo = ?`
 	var payment CryptoPayment
-	_, err = s.db.QueryContext(ctx, &payment, query, reference)
+	_, err = s.db.QueryContext(ctx, &payment, query, memo)
 	if err != nil {
 		return isPaid, fmt.Errorf("QueryContext: %w", err)
 	}
@@ -132,7 +132,7 @@ func (s *Storage) GetUserPaymentHistory(ctx context.Context, userID, limit, page
 	if page == 0 {
 		page = 1
 	}
-	query := `SELECT COUNT(*) OVER() AS total_count, crp_id, crp_reference, crp_signature, usr_id, crp_mplx_amount, crp_created_at, crp_paid_at
+	query := `SELECT COUNT(*) OVER() AS total_count, crp_id, crp_memo, crp_signature, usr_id, crp_mplx_amount, crp_created_at, crp_paid_at
 					FROM crypto_payments WHERE usr_id = ? ORDER BY crp_created_at DESC LIMIT ? OFFSET ?`
 	_, err = s.db.QueryContext(ctx, &paymentHistory, query, userID, limit, (page-1)*limit)
 	if err != nil {
