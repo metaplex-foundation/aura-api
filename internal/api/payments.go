@@ -197,6 +197,9 @@ func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Sig
 	return transfer, nil
 }
 
+// Parses payment transactions.
+// Function is designed to parse a transaction with 2 instructions: Memo and TransferChecked(spl token program).
+// Because that type of transaction is created with usage of Solana pay protocol.
 func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (result postgres.TransferInfo, err error) {
 	parsedTx, err := txResp.Transaction.GetTransaction()
 	if err != nil {
@@ -230,6 +233,7 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 					// in case API started to check old transactions
 					// new payment transactions will put reference into memo
 					for _, accountKey := range parsedTx.Message.AccountKeys {
+						// make sure reference is valid and saved in DB as 'unpaid'
 						if _, ok := p.unpaidReferences[accountKey.String()]; ok {
 							if accountKey != solana.SystemProgramID {
 								result.Reference = accountKey
@@ -243,6 +247,7 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 					if err != nil {
 						return result, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
 					}
+					// make sure reference is valid and saved in DB as 'unpaid'
 					if _, ok := p.unpaidReferences[reference.String()]; ok {
 						result.Reference = reference
 					}
@@ -278,6 +283,7 @@ func (p *paymentsWatcher) getReferenceFromMemoInstr(instrData solana.Base58) (re
 	return reference, nil
 }
 
+// Get transferred amount from the instruction and check other instruction arguments
 func (p *paymentsWatcher) getTransferredAmount(accounts []*solana.AccountMeta, instrData []byte, parsedTx *solana.Transaction) (amount int64, err error) {
 	tokenInst, err := token.DecodeInstruction(accounts, instrData)
 	if err != nil {
