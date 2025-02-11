@@ -15,7 +15,7 @@ SHELL := /bin/bash
 
 REGISTRY=ghcr.io/adm-metaex/aura-api
 APP=$(shell basename -s .git $(shell git remote get-url origin))
-VERSION=$(shell git describe --tags --abbrev=0)-$(shell git rev-parse --short HEAD)
+VERSION=$(shell git describe --tags --abbrev=0)
 TARGETARCH=amd64
 TARGETOS=linux
 BASEPATH = ${REGISTRY}/${APP}:${VERSION}
