@@ -14,11 +14,11 @@ type (
 		Chain       string    `json:"chain"`
 		IsMainnet   int64     `json:"is_mainnet"`
 		RequestsNum int64     `json:"num_requests"`
-		Day         time.Time `json:"day"`
+		Date        time.Time `json:"day"`
 	}
 
 	AggregatedProviderDailyStat struct {
-		Day               time.Time `json:"day"`
+		Date              time.Time `json:"day"`
 		Provider          string    `json:"provider"`
 		Chain             string    `json:"chain"`
 		IsMainnet         bool      `json:"is_mainnet"`
@@ -27,7 +27,7 @@ type (
 	}
 
 	AggregatedUsageDailyStat struct {
-		Day                         time.Time `json:"day"`
+		Date                        time.Time `json:"day"`
 		UsersTotal                  int64     `json:"users_total"`
 		TotalFreeSubscriptions      int64     `json:"total_free_subscriptions"`
 		TotalDeveloperSubscriptions int64     `json:"total_developer_subscriptions"`
@@ -53,6 +53,7 @@ func (s *Storage) DailyProviderPaidRequests() (result []ResponseProviderDailyReq
 			AND toDate(timestamp) >= toDate(now() - INTERVAL 1 DAY,
 			'Etc/UTC')
 			and subscription_id != 1
+			and status == 200
 		GROUP BY
 			provider,
 			chain,
@@ -67,7 +68,7 @@ func (s *Storage) DailyProviderPaidRequests() (result []ResponseProviderDailyReq
 
 	for rows.Next() {
 		var entry ResponseProviderDailyRequests
-		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.IsMainnet, &entry.RequestsNum, &entry.Day); err != nil {
+		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.IsMainnet, &entry.RequestsNum, &entry.Date); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
@@ -91,6 +92,7 @@ func (s *Storage) DailyProviderFreeRequests() (result []ResponseProviderDailyReq
 			AND toDate(timestamp) >= toDate(now() - INTERVAL 1 DAY,
 			'Etc/UTC')
 			and subscription_id = 1
+			and status == 200
 		GROUP BY
 			provider,
 			chain,
@@ -105,7 +107,7 @@ func (s *Storage) DailyProviderFreeRequests() (result []ResponseProviderDailyReq
 
 	for rows.Next() {
 		var entry ResponseProviderDailyRequests
-		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.IsMainnet, &entry.RequestsNum, &entry.Day); err != nil {
+		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.IsMainnet, &entry.RequestsNum, &entry.Date); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
@@ -145,7 +147,7 @@ func (s *Storage) InsertDailyProviderStat(providersStats []AggregatedProviderDai
 
 	for _, stat := range providersStats {
 		_, err := stmt.Exec(
-			stat.Day,
+			stat.Date,
 			stat.Provider,
 			stat.Chain,
 			stat.IsMainnet,
@@ -179,7 +181,7 @@ func (s *Storage) InsertAggregatedUsageDailyStat(usageStat AggregatedUsageDailyS
 		(
 			?, ?, ?, ?, ?, ?, ?
 		)`
-	_, err = s.conn.Exec(query, usageStat.Day, usageStat.UsersTotal, usageStat.TotalFreeSubscriptions,
+	_, err = s.conn.Exec(query, usageStat.Date, usageStat.UsersTotal, usageStat.TotalFreeSubscriptions,
 		usageStat.TotalDeveloperSubscriptions, usageStat.TotalAdvancedSubscriptions, usageStat.TotalProSubscriptions, usageStat.TotalNotUsedMplx)
 	if err != nil {
 		return fmt.Errorf("exec: %w", err)

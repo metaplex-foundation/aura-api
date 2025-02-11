@@ -90,7 +90,7 @@ func (c *Collector) collectAndSaveUserSubscrStat(ctx context.Context) (err error
 		}
 	}
 
-	usageDailyStat.Day = time.Now()
+	usageDailyStat.Date = time.Now()
 	usageDailyStat.UsersTotal = usersTotal
 	usageDailyStat.TotalNotUsedMplx = usersAvailableMPLXBalance
 
@@ -157,7 +157,7 @@ func updateResultMap(
 		stat, exists := resultMap[provider][chain][isMainnet]
 		if !exists {
 			stat = clickhouse.AggregatedProviderDailyStat{
-				Day:       element.Day,
+				Date:      element.Date,
 				Provider:  provider,
 				Chain:     chain,
 				IsMainnet: isMainnet,
