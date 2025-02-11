@@ -52,7 +52,7 @@ type (
 		IsPaid bool `json:"is_paid"`
 	}
 	PaymentStatusHistoryElement struct {
-		Reference  string     `json:"reference"`
+		Memo       string     `json:"memo"`
 		Signature  *string    `json:"signature"`
 		MplxAmount *int64     `json:"mplx_amount"`
 		CreatedAt  time.Time  `json:"created_at"`
@@ -293,7 +293,7 @@ func (p *PaymentStatusHistoryResponse) fromDBModels(payments []postgres.CryptoPa
 	p.History = make([]PaymentStatusHistoryElement, 0, len(payments))
 	for i := range payments {
 		p.History = append(p.History, PaymentStatusHistoryElement{
-			Reference:  payments[i].Reference,
+			Memo:       payments[i].Memo,
 			Signature:  payments[i].Signature,
 			MplxAmount: payments[i].MplxAmount,
 			CreatedAt:  payments[i].CreatedAt,
