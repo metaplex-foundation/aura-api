@@ -29,7 +29,7 @@ const (
 	granularityParam        = "granularity"
 	amountParam             = "amount"
 	paymentTypeParam        = "payment_type"
-	referenceParam          = "reference"
+	memoParam               = "memo"
 	pageParam               = "page"
 	limitParam              = "limit"
 	isMainnetParam          = "is_mainnet"
@@ -568,11 +568,11 @@ func (a *api) getPaymentLink(c echo.Context) (err error) {
 //	@Description	Get payment status
 //	@Tags			payment
 //	@Produce		json
-//	@Param			reference	query		string					true	"Reference address"
-//	@Success		200			{object}	PaymentStatusResponse	"Payment status"
-//	@Failure		400			{object}	error
-//	@Failure		401			{object}	error
-//	@Failure		500			{object}	error
+//	@Param			memo	query		string					true	"Memo address"
+//	@Success		200		{object}	PaymentStatusResponse	"Payment status"
+//	@Failure		400		{object}	error
+//	@Failure		401		{object}	error
+//	@Failure		500		{object}	error
 //	@Security		ApiKeyAuth
 //	@Router			/payments/status [get]
 func (a *api) getPaymentStatus(c echo.Context) (err error) {
@@ -581,13 +581,13 @@ func (a *api) getPaymentStatus(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getPaymentLink: fail to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	reference := c.QueryParam(referenceParam)
-	if reference == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missing parameter: %s", referenceParam))
+	memo := c.QueryParam(memoParam)
+	if memo == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Missing parameter: %s", memoParam))
 	}
-	isPaid, err := a.pgStorage.CheckIfReferencePaid(c.Request().Context(), reference)
+	isPaid, err := a.pgStorage.CheckIfMemoPaid(c.Request().Context(), memo)
 	if err != nil {
-		log.Logger.API.Errorf("getPaymentStatus: CheckIfReferencePaid: %s", err)
+		log.Logger.API.Errorf("getPaymentStatus: CheckIfmemoPaid: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -602,12 +602,12 @@ func (a *api) getPaymentStatus(c echo.Context) (err error) {
 //	@Description	Get payment history
 //	@Tags			payment
 //	@Produce		json
-//	@Param			limit	query		int64					false	"Payments per page. Default 10"
-//	@Param			page	query		int64					false	"Page number. Default 1"
-//	@Success		200			{object}	PaymentStatusHistoryResponse	"Payment history"
-//	@Failure		400			{object}	error
-//	@Failure		401			{object}	error
-//	@Failure		500			{object}	error
+//	@Param			limit	query		int64							false	"Payments per page. Default 10"
+//	@Param			page	query		int64							false	"Page number. Default 1"
+//	@Success		200		{object}	PaymentStatusHistoryResponse	"Payment history"
+//	@Failure		400		{object}	error
+//	@Failure		401		{object}	error
+//	@Failure		500		{object}	error
 //	@Security		ApiKeyAuth
 //	@Router			/payments/history [get]
 func (a *api) getPaymentHistory(c echo.Context) (err error) {
@@ -642,7 +642,7 @@ func (a *api) getPaymentHistory(c echo.Context) (err error) {
 	}
 	paymentHistory, err := a.pgStorage.GetUserPaymentHistory(c.Request().Context(), u.ID, int64(limit), int64(page))
 	if err != nil {
-		log.Logger.API.Errorf("getPaymentStatus: CheckIfReferencePaid: %s", err)
+		log.Logger.API.Errorf("getPaymentStatus: CheckIfMemoPaid: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 	var p PaymentStatusHistoryResponse

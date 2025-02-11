@@ -18,11 +18,11 @@ definitions:
     properties:
       created_at:
         type: string
+      memo:
+        type: string
       mplx_amount:
         type: integer
       paid_at:
-        type: string
-      reference:
         type: string
       signature:
         type: string
@@ -389,7 +389,6 @@ paths:
       - description: Page number. Default 1
         in: query
         name: page
-        required: true
         type: integer
       produces:
       - application/json
@@ -454,9 +453,9 @@ paths:
     get:
       description: Get payment status
       parameters:
-      - description: Reference address
+      - description: Memo address
         in: query
-        name: reference
+        name: memo
         required: true
         type: string
       produces:

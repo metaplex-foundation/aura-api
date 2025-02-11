@@ -39,7 +39,7 @@ type paymentsWatcher struct {
 	paymentRecipient                       solana.PublicKey
 	paymentRecipientAssociatedTokenAddress solana.PublicKey
 	lastProcessedSignature                 solana.Signature
-	unpaidReferences                       map[string]struct{}
+	unpaidMemos                            map[string]struct{}
 }
 
 func newPaymentsWatcher(rpcAddress string, pgStorage *postgres.Storage, paymentRecipient solana.PublicKey) (p paymentsWatcher, err error) {
@@ -56,7 +56,7 @@ func newPaymentsWatcher(rpcAddress string, pgStorage *postgres.Storage, paymentR
 }
 
 func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amount, paymentType string, userID int64) (string, error) {
-	referenceKey, err := solana.NewRandomPrivateKey()
+	memoKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
 		return "", fmt.Errorf("NewRandomPrivateKey: %w", err)
 	}
@@ -69,14 +69,14 @@ func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amou
 	q.Set("spl-token", metaplexToken.String())
 	q.Set("label", paymentLabel)
 	q.Set("message", fmt.Sprintf("Payment type: %s", paymentType))
-	q.Set("memo", referenceKey.PublicKey().String())
+	q.Set("memo", memoKey.PublicKey().String())
 
 	u.RawQuery = q.Encode()
 	amountConverted, err := decimal.NewFromString(amount)
 	if err != nil {
 		return "", fmt.Errorf("NewFromString: %s", err)
 	}
-	err = p.pgStorage.CreateUnconfirmedPayment(ctx, referenceKey.PublicKey(), userID, amountConverted.Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64())
+	err = p.pgStorage.CreateUnconfirmedPayment(ctx, memoKey.PublicKey(), userID, amountConverted.Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64())
 	if err != nil {
 		return "", fmt.Errorf("CreateUnconfirmedPayment: %w", err)
 	}
@@ -96,11 +96,11 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 			log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
 		}
 		p.lastProcessedSignature = lastProcessedSig
-		unpaidReferences, err := p.pgStorage.FetchAllUnpaidReferences(ctx)
+		unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
 		if err != nil && !errors.Is(err, pg.ErrNoRows) {
-			log.Logger.API.Errorf("watchPayments: FetchAllUnpaidReferences: %s", err)
+			log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
 		}
-		p.unpaidReferences = unpaidReferences
+		p.unpaidMemos = unpaidMemos
 
 		err = p.processNewTransfers(ctx)
 		if err != nil {
@@ -229,27 +229,27 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 					}
 					result.Amount = amount
 
-					// check if there is reference in Transfer instruction
+					// check if there is memo in Transfer instruction
 					// in case API started to check old transactions
-					// new payment transactions will put reference into memo
+					// new payment transactions will put memo in a separate instruction
 					for _, accountKey := range parsedTx.Message.AccountKeys {
-						// make sure reference is valid and saved in DB as 'unpaid'
-						if _, ok := p.unpaidReferences[accountKey.String()]; ok {
+						// make sure memo is valid and saved in DB as 'unpaid'
+						if _, ok := p.unpaidMemos[accountKey.String()]; ok {
 							if accountKey != solana.SystemProgramID {
-								result.Reference = accountKey
+								result.Memo = accountKey
 							}
 						}
 					}
 				}
 			case memo.ProgramID:
 				{
-					reference, err := p.getReferenceFromMemoInstr(inst.Data)
+					memo, err := p.getMemoFromMemoInstr(inst.Data)
 					if err != nil {
-						return result, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
+						return result, fmt.Errorf("getMemoFromMemoInstr: %s", err)
 					}
-					// make sure reference is valid and saved in DB as 'unpaid'
-					if _, ok := p.unpaidReferences[reference.String()]; ok {
-						result.Reference = reference
+					// make sure memo is valid and saved in DB as 'unpaid'
+					if _, ok := p.unpaidMemos[memo.String()]; ok {
+						result.Memo = memo
 					}
 				}
 			default:
@@ -263,24 +263,24 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 	}
 
 	// means we've got invalid transaction with incorrect data
-	if result.Amount == 0 || result.Reference == (solana.PublicKey{}) {
+	if result.Amount == 0 || result.Memo == (solana.PublicKey{}) {
 		return result, fmt.Errorf("could not extract all the expected information from the transaction")
 	}
 
 	return result, nil
 }
 
-func (p *paymentsWatcher) getReferenceFromMemoInstr(instrData solana.Base58) (reference solana.PublicKey, err error) {
+func (p *paymentsWatcher) getMemoFromMemoInstr(instrData solana.Base58) (memo solana.PublicKey, err error) {
 	decoded, err := base58.Decode(instrData.String())
 	if err != nil {
-		return reference, fmt.Errorf("could not decode memo instruction data from base58: %s", err)
+		return memo, fmt.Errorf("could not decode memo instruction data from base58: %s", err)
 	}
-	reference, err = solana.PublicKeyFromBase58(string(decoded))
+	memo, err = solana.PublicKeyFromBase58(string(decoded))
 	if err != nil {
-		return reference, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
+		return memo, fmt.Errorf("getMemoFromMemoInstr: %s", err)
 	}
 
-	return reference, nil
+	return memo, nil
 }
 
 // Get transferred amount from the instruction and check other instruction arguments
