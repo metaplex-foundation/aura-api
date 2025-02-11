@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/memo"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/go-pg/pg/v10"
+	"github.com/mr-tron/base58"
 	"github.com/shopspring/decimal"
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
@@ -65,9 +67,10 @@ func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amou
 	q := u.Query()
 	q.Set("amount", amount)
 	q.Set("spl-token", metaplexToken.String())
-	q.Set("reference", referenceKey.PublicKey().String())
 	q.Set("label", paymentLabel)
 	q.Set("message", fmt.Sprintf("Payment type: %s", paymentType))
+	q.Set("memo", referenceKey.PublicKey().String())
+
 	u.RawQuery = q.Encode()
 	amountConverted, err := decimal.NewFromString(amount)
 	if err != nil {
@@ -115,7 +118,7 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 		return fmt.Errorf("fetchNewTransactionSignatures: %s", err)
 	}
 	for _, sig := range allNewSignatures {
-		transfers, err := p.processTransaction(ctx, sig)
+		transfer, err := p.processTransaction(ctx, sig)
 		if err != nil {
 			log.Logger.API.Errorf("fetchNewTransfers: processTransaction: %s", err)
 			err = p.pgStorage.SaveFailTransactionProcessingSignature(ctx, sig, err.Error())
@@ -124,7 +127,7 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			}
 			continue
 		}
-		err = p.pgStorage.UpdatePayments(ctx, transfers)
+		err = p.pgStorage.UpdatePayments(ctx, []postgres.TransferInfo{transfer})
 		if err != nil {
 			log.Logger.API.Errorf("fetchNewTransfers: UpdatePayments %s: %s", sig, err)
 			err = p.pgStorage.SaveFailTransactionProcessingSignature(ctx, sig, err.Error())
@@ -172,93 +175,150 @@ func (p *paymentsWatcher) fetchNewTransactionSignatures(ctx context.Context) (al
 	return allNewSignatures, nil
 }
 
-func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Signature) (transfers []postgres.TransferInfo, err error) {
+func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Signature) (transfer postgres.TransferInfo, err error) {
 	txResp, err := p.rpcClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
 		Encoding:   solana.EncodingBase64,
 		Commitment: rpc.CommitmentFinalized,
 	})
 	if err != nil {
 		// Node error. Need to retry later
-		return nil, fmt.Errorf("GetTransaction %s: %s", sig, err)
+		return transfer, fmt.Errorf("GetTransaction %s: %s", sig, err)
 	}
 	if txResp == nil || txResp.Transaction == nil {
 		// Cannot fetch transaction from node. Maybe need to retry later
-		return nil, fmt.Errorf("empty transaction for signature: %s", sig)
+		return transfer, fmt.Errorf("empty transaction for signature: %s", sig)
 	}
-	transfers, err = p.parseTransaction(*txResp)
+	transfer, err = p.parseTransaction(*txResp)
 	if err != nil {
 		// Error while parsing tx. Maybe the wrong tx format returned. Need to retry
-		return nil, fmt.Errorf("parseTransaction: %s", err)
+		return transfer, fmt.Errorf("parseTransaction: %s", err)
 	}
 
-	return transfers, nil
+	return transfer, nil
 }
 
-func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (result []postgres.TransferInfo, err error) {
+// Parses payment transactions.
+// Function is designed to parse a transaction with 2 instructions: Memo and TransferChecked(spl token program).
+// Because that type of transaction is created with usage of Solana pay protocol.
+func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (result postgres.TransferInfo, err error) {
 	parsedTx, err := txResp.Transaction.GetTransaction()
 	if err != nil {
-		return nil, fmt.Errorf("GetTransaction: %s", err)
+		return result, fmt.Errorf("GetTransaction: %s", err)
 	}
 	if len(parsedTx.Signatures) == 0 {
-		return nil, fmt.Errorf("empty signature")
+		return result, fmt.Errorf("empty signature")
 	}
-	signature := parsedTx.Signatures[0]
+
+	result.Signature = parsedTx.Signatures[0]
 
 	for _, inst := range parsedTx.Message.Instructions {
 		accounts, err := inst.ResolveInstructionAccounts(&parsedTx.Message)
 		if err != nil {
-			return nil, fmt.Errorf("ResolveInstructionAccounts: %s", err)
-		}
-		tokenInst, err := token.DecodeInstruction(accounts, inst.Data)
-		if err != nil {
-			// Non token program instruction, just skip it
-			continue
+			return result, fmt.Errorf("ResolveInstructionAccounts: %s", err)
 		}
 
-		switch spec := tokenInst.Impl.(type) {
-		case *token.TransferChecked:
-			{
-				var reference solana.PublicKey
-				for _, accountKey := range parsedTx.Message.AccountKeys {
-					if _, ok := p.unpaidReferences[accountKey.String()]; ok {
-						reference = accountKey
-						break
+		if int(inst.ProgramIDIndex) < len(parsedTx.Message.AccountKeys) {
+			programKey := parsedTx.Message.AccountKeys[inst.ProgramIDIndex]
+
+			switch programKey {
+			case token.ProgramID:
+				{
+					amount, err := p.getTransferredAmount(accounts, inst.Data, parsedTx)
+					if err != nil {
+						return result, fmt.Errorf("getTransferredAmount: %s", err)
+					}
+					result.Amount = amount
+
+					// check if there is reference in Transfer instruction
+					// in case API started to check old transactions
+					// new payment transactions will put reference into memo
+					for _, accountKey := range parsedTx.Message.AccountKeys {
+						// make sure reference is valid and saved in DB as 'unpaid'
+						if _, ok := p.unpaidReferences[accountKey.String()]; ok {
+							if accountKey != solana.SystemProgramID {
+								result.Reference = accountKey
+							}
+						}
 					}
 				}
-				if reference == solana.SystemProgramID {
-					continue
+			case memo.ProgramID:
+				{
+					reference, err := p.getReferenceFromMemoInstr(inst.Data)
+					if err != nil {
+						return result, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
+					}
+					// make sure reference is valid and saved in DB as 'unpaid'
+					if _, ok := p.unpaidReferences[reference.String()]; ok {
+						result.Reference = reference
+					}
 				}
-				mint := spec.Accounts.Get(expectedMintAccountIndex)
-				if mint == nil {
-					continue
-				}
-				destination := spec.Accounts.Get(expectedDestinationAccountIndex)
-				if destination == nil {
-					continue
-				}
-				if mint.PublicKey != metaplexToken {
-					// Invalid mint
-					continue
-				}
-				if destination.PublicKey != p.paymentRecipientAssociatedTokenAddress {
-					// Invalid destination
-					continue
-				}
-				if spec.Amount == nil {
-					continue
-				}
-
-				result = append(result, postgres.TransferInfo{
-					Reference: reference,
-					Amount:    int64(*spec.Amount),
-					Signature: signature,
-				})
+			default:
+				// unknown program
+				continue
 			}
-		default:
-			// Another token program instruction
+		} else {
+			// cannot identify program
 			continue
 		}
 	}
 
+	// means we've got invalid transaction with incorrect data
+	if result.Amount == 0 || result.Reference == (solana.PublicKey{}) {
+		return result, fmt.Errorf("could not extract all the expected information from the transaction")
+	}
+
 	return result, nil
+}
+
+func (p *paymentsWatcher) getReferenceFromMemoInstr(instrData solana.Base58) (reference solana.PublicKey, err error) {
+	decoded, err := base58.Decode(instrData.String())
+	if err != nil {
+		return reference, fmt.Errorf("could not decode memo instruction data from base58: %s", err)
+	}
+	reference, err = solana.PublicKeyFromBase58(string(decoded))
+	if err != nil {
+		return reference, fmt.Errorf("getReferenceFromMemoInstr: %s", err)
+	}
+
+	return reference, nil
+}
+
+// Get transferred amount from the instruction and check other instruction arguments
+func (p *paymentsWatcher) getTransferredAmount(accounts []*solana.AccountMeta, instrData []byte, parsedTx *solana.Transaction) (amount int64, err error) {
+	tokenInst, err := token.DecodeInstruction(accounts, instrData)
+	if err != nil {
+		return amount, fmt.Errorf("DecodeInstruction: %s", err)
+	}
+
+	switch spec := tokenInst.Impl.(type) {
+	case *token.TransferChecked:
+		{
+			mint := spec.Accounts.Get(expectedMintAccountIndex)
+			if mint == nil {
+				return amount, fmt.Errorf("mint account is missed")
+			}
+			destination := spec.Accounts.Get(expectedDestinationAccountIndex)
+			if destination == nil {
+				return amount, fmt.Errorf("destination account is missed")
+			}
+			if mint.PublicKey != metaplexToken {
+				// Invalid mint
+				return amount, fmt.Errorf("mint account in transaction doesn't equal to MPLX token account mint. Received %s", mint.PublicKey)
+			}
+			if destination.PublicKey != p.paymentRecipientAssociatedTokenAddress {
+				// Invalid destination
+				return amount, fmt.Errorf("destination wallet address doesn't match with expected. Received %s", destination.PublicKey)
+			}
+			if spec.Amount == nil {
+				return amount, fmt.Errorf("amount is missed")
+			}
+
+			amount = int64(*spec.Amount)
+		}
+	default:
+		// Another token program instruction
+		return amount, nil
+	}
+
+	return amount, nil
 }
