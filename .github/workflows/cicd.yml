@@ -19,7 +19,7 @@ jobs:
       - name: Define Application Variables
         run: |
           echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
-          echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --tags --abbrev=0)-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Notify Start CI
         uses: ./.github/actions/telegram
@@ -89,7 +89,7 @@ jobs:
       - name: Define Application Variables
         run: |
           echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
-          echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --tags --abbrev=0)-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Notify Start CD
         uses: ./.github/actions/telegram
