@@ -35,6 +35,7 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/email"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/proto"
+	"github.com/adm-metaex/aura-api/pkg/stats"
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
 
@@ -86,6 +87,8 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	mplxPrice        decimal.Decimal
 	paymentRecipient solana.PublicKey
 	paymentWatcher   paymentsWatcher
+
+	statsCollector stats.Collector
 }
 
 const (
@@ -108,7 +111,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("PG storage init: %s", err)
 	}
-	chStorage, err := clickhouse.New(cfg.CH.DSN, cfg.API.Hostname)
+	chStorage, err := clickhouse.New(cfg.CH, cfg.API.Hostname)
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
@@ -160,6 +163,8 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		return a, fmt.Errorf("newPaymentsWatcher: %s", err)
 	}
 
+	statsCollector := stats.New(pgStorage, chStorage)
+
 	// TODO: add consul watching
 	g := grpc.NewServer()
 	proto.RegisterAuraServer(g, &auraServer{
@@ -189,6 +194,8 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		mplxPrice:         price,
 		paymentRecipient:  paymentRecepient,
 		paymentWatcher:    paymentWatcher,
+
+		statsCollector: statsCollector,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -221,6 +228,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
 	}
 	go chStorage.RunStatsAggregator(ctx)
+	go a.statsCollector.RunStatsCollector(ctx)
 	go a.listenConsul(ctx)
 	// TODO: consider consul
 	if cfg.API.IsFrontendAPI {

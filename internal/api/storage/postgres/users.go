@@ -31,6 +31,11 @@ type (
 		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
 		APIKeys            []string   `pg:"api_keys"`
 	}
+
+	UsersSubscriptionsCount struct {
+		SubscriptionId    int64 `pg:"sbs_id"`
+		SubscriptionCount int64 `pg:"sbs_count"`
+	}
 )
 
 const (
@@ -175,4 +180,35 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 	}
 
 	return nil
+}
+
+func (s *Storage) GetUsersCount(ctx context.Context) (count int64, err error) {
+	query := `SELECT count(*) from users;`
+	_, err = s.db.QueryOneContext(ctx, &count, query)
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
+func (s *Storage) GetUsersAvailableMPLXBalance(ctx context.Context) (availableBalance int64, err error) {
+	query := `SELECT SUM(usr_mplx_balance) FROM users;`
+	_, err = s.db.QueryOneContext(ctx, &availableBalance, query)
+	if err != nil {
+		return availableBalance, err
+	}
+
+	return availableBalance, nil
+}
+
+func (s *Storage) GetUsersSubscriptionsCount(ctx context.Context) (usersSubscriptions []UsersSubscriptionsCount, err error) {
+	query := `SELECT sbs_id, COUNT(*) AS sbs_count FROM users GROUP BY sbs_id;`
+
+	_, err = s.db.QueryContext(ctx, &usersSubscriptions, query)
+	if err != nil {
+		return usersSubscriptions, err
+	}
+
+	return usersSubscriptions, nil
 }
