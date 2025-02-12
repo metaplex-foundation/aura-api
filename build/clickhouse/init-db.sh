@@ -24,8 +24,7 @@ clickhouse client -n <<-EOSQL
         chain String,
         response_size_bytes Int64,
         target_type String,
-        is_mainnet UInt8,
-        subscription_id Int64
+        is_mainnet UInt8
     ) ENGINE = ReplacingMergeTree()
           ORDER BY (user_uid, tkn_uuid, request_uuid);
 

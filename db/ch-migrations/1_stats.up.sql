@@ -22,3 +22,5 @@ create table if not exists aura.aggregated_providers_stats
 ) ENGINE = ReplacingMergeTree()
     ORDER BY (time, provider, chain)
     SETTINGS allow_nullable_key = 1;
+
+alter table aura.stats add column subscription_id Int64 after is_mainnet;
