@@ -29,6 +29,10 @@ func (c ClickhouseConfig) Validate() error {
 		return errors.New("invalid dsn")
 	}
 
+	if c.MigrationsPath == "" {
+		return errors.New("invalid migrations path")
+	}
+
 	return nil
 }
 

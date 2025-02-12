@@ -33,7 +33,8 @@ type (
 		MigrationsPath string `required:"true" split_words:"true"`
 	}
 	ClickhouseConfig struct {
-		DSN string `required:"true" split_words:"true"`
+		DSN            string `required:"true" split_words:"true"`
+		MigrationsPath string `required:"true" split_words:"true"`
 	}
 	ServiceConfig struct {
 		Name  string `envconfig:"NAME" default:"unspecified" required:"false"`
