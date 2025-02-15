@@ -36,7 +36,29 @@ type (
 		Error   *jsonrpc.RPCError `json:"error,omitempty"`
 		Result  json.RawMessage   `json:"result,omitempty"`
 	}
+
+	RequestType int
 )
+
+const (
+	DAS RequestType = iota
+	RPC
+	GPA
+	SWQOS
+	Websocket
+)
+
+var requestTypeName = map[RequestType]string{
+	DAS:       "DAS",
+	RPC:       "RPC",
+	GPA:       "GPA",
+	SWQOS:     "SWQOS",
+	Websocket: "Websocket",
+}
+
+func (ss RequestType) String() string {
+	return requestTypeName[ss]
+}
 
 func NewRPCErrorResponse(err *jsonrpc.RPCError, id interface{}) *RPCResponse {
 	return &RPCResponse{

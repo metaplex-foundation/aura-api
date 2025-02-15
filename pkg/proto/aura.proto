@@ -36,6 +36,8 @@ message Stat {
   string provider = 17;
   int64 method_cost = 18;
   bool is_mainnet = 19;
+  int64 subscription_id = 20;
+  string request_type = 21;
 }
 
 message BatchInsertStatsReq {
