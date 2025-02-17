@@ -42,16 +42,18 @@ func (s *Storage) GetLatestAggregatedRewardsDay(ctx context.Context) (date Date,
 	query := `SELECT toDate(MAX(time)) from aura.providers_requests_daily_summary;`
 
 	row := s.conn.QueryRow(query)
+
+	var nullableDate sql.NullTime
+	err = row.Scan(&nullableDate)
 	if err != nil {
-		return date, fmt.Errorf("query: %s", err)
+		return date, fmt.Errorf("scan: %s", err)
 	}
 
-	err = row.Scan(date)
-	if err != nil {
-		return date, fmt.Errorf("scan:  %s", err)
+	if !nullableDate.Valid {
+		return Date{}, nil
 	}
 
-	return date, nil
+	return Date{nullableDate.Time}, nil
 }
 
 func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, startFromDay Date) (result []ProviderRequestStats, err error) {
@@ -61,10 +63,10 @@ func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, sta
 			chain,
 			request_type,
 			COUNT(*) AS request_count,
-			SUM(method_cost)/COUNT(*) as request_price
+			SUM(method_cost)/COUNT(*) as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
-			WHERE day > %s
+			WHERE day > '%s'
 			AND day < today()
 			AND subscription_id = 2
 			AND status = 200
@@ -98,7 +100,7 @@ func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, s
 			method_cost as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
-			WHERE day > %s
+			WHERE day > '%s'
 			AND day < today()
 			AND subscription_id >= 3
 			AND status = 200
@@ -140,12 +142,12 @@ func (s *Storage) SaveAggregatedProvidersStat(ctx context.Context, aggregatedDat
 	}()
 
 	stmt, err := tx.Prepare(`INSERT INTO aura.providers_requests_daily_summary (
-		provider
-		request_type
-		chain
-		payment_plan
-		price_per_request
-		num_of_requests
+		provider,
+		request_type,
+		chain,
+		payment_plan,
+		price_per_request,
+		num_of_requests,
 		time
 	)`)
 	if err != nil {
