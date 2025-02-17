@@ -38,8 +38,8 @@ func (pp PaymentPlan) String() string {
 	return paymentPlanName[pp]
 }
 
-func (s *Storage) GetLatestAggregatedRewardsDay(ctx context.Context) (date Date, err error) {
-	query := `SELECT toDate(MAX(time)) from aura.providers_requests_daily_summary;`
+func (s *Storage) GetLatestAggregatedRewardsDayByPlan(ctx context.Context, paymentPlan PaymentPlan) (date Date, err error) {
+	query := fmt.Sprintf(`SELECT toDate(MAX(time)) from aura.providers_requests_daily_summary WHERE payment_plan = '%s';`, paymentPlan.String())
 
 	row := s.conn.QueryRow(query)
 

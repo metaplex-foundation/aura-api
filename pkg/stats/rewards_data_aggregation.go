@@ -70,9 +70,9 @@ func (c *Collector) collectLatestStat(ctx context.Context) (err error) {
 }
 
 func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) (err error) {
-	latestAggregatedDay, err := c.chStorage.GetLatestAggregatedRewardsDay(ctx)
+	latestAggregatedDay, err := c.chStorage.GetLatestAggregatedRewardsDayByPlan(ctx, clickhouse.PayAsYouGo)
 	if err != nil {
-		return fmt.Errorf("GetMaxAggregatedRewardsDate: %s", err)
+		return fmt.Errorf("GetLatestAggregatedRewardsDayByPlan: %s", err)
 	}
 
 	aggregatedPayAsYouGoStat, err := c.chStorage.GetProviderRequestStatsPayAsYouGoPlan(ctx, latestAggregatedDay)
@@ -89,9 +89,9 @@ func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) (err err
 }
 
 func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err error) {
-	latestAggregatedDay, err := c.chStorage.GetLatestAggregatedRewardsDay(ctx)
+	latestAggregatedDay, err := c.chStorage.GetLatestAggregatedRewardsDayByPlan(ctx, clickhouse.Subscription)
 	if err != nil {
-		return fmt.Errorf("GetLatestAggregatedRewardsDay: %s", err)
+		return fmt.Errorf("GetLatestAggregatedRewardsDayByPlan: %s", err)
 	}
 
 	aggregatedSubscriptionStat, err := c.chStorage.GetProviderRequestStatsSubscriptionPlan(ctx, latestAggregatedDay)
