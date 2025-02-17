@@ -86,7 +86,7 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	if err != nil {
 		return nil, fmt.Errorf("PG storage init: %s", err)
 	}
-	chStorage, err := clickhouse.New(cfg.CH, cfg.API.Hostname)
+	chStorage, err := clickhouse.NewAndMigrate(cfg.CH, cfg.API.Hostname)
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
 	}
