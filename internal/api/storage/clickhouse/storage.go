@@ -18,7 +18,7 @@ type Storage struct {
 	serverID string
 }
 
-func New(config configtypes.ClickhouseConfig, serverID string) (s Storage, err error) {
+func NewAndMigrate(config configtypes.ClickhouseConfig, serverID string) (s Storage, err error) {
 	opt, err := clickhouse.ParseDSN(config.DSN)
 	if err != nil {
 		return s, fmt.Errorf("ParseDSN: %s", err)
