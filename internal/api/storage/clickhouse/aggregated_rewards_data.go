@@ -39,7 +39,7 @@ func (pp PaymentPlan) String() string {
 }
 
 func (s *Storage) GetLatestAggregatedRewardsDayByPlan(ctx context.Context, paymentPlan PaymentPlan) (date *Date, err error) {
-	query := fmt.Sprintf(`SELECT MAX(time) FROM aura.providers_requests_daily_summary WHERE payment_plan = '%s';`, paymentPlan.String())
+	query := fmt.Sprintf(`SELECT MAX(day) FROM aura.providers_requests_daily_summary WHERE payment_plan = '%s';`, paymentPlan.String())
 
 	row := s.conn.QueryRow(query)
 
@@ -153,7 +153,7 @@ func (s *Storage) SaveAggregatedProvidersStat(ctx context.Context, aggregatedDat
 		payment_plan,
 		price_per_request,
 		num_of_requests,
-		time
+		day
 	)`)
 	if err != nil {
 		return fmt.Errorf("prepare statement error: %s", err)

@@ -6,7 +6,7 @@ create table if not exists aura.providers_requests_daily_summary
     payment_plan Enum('pay-as-you-go' = 1, 'subscription' = 2),
     price_per_request Int64,
     num_of_requests Int64,
-    time Date
+    day Date
 ) ENGINE = ReplacingMergeTree()
-    ORDER BY (payment_plan, provider, request_type, chain, time)
+    ORDER BY (payment_plan, provider, request_type, chain, day)
     SETTINGS allow_nullable_key = 1;
