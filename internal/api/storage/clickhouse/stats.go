@@ -18,6 +18,9 @@ const (
 	allData         = "All"
 	hourlyThreshold = 1 * time.Hour
 	dailyThreshold  = 24 * time.Hour
+
+	OutdatedStatsPeriod                = 7  // days
+	OutdatedHourlyAggregatedDataPeriod = 30 // days
 )
 
 const (
@@ -176,8 +179,8 @@ func (s *Storage) BatchInsertStats(stats []*proto.Stat) error {
 }
 
 func (s *Storage) DeleteOutdatedStats(ctx context.Context) error {
-	query := `ALTER TABLE aura.stats
-    DELETE WHERE timestamp < now() - INTERVAL 7 DAY;`
+	query := fmt.Sprintf(`ALTER TABLE aura.stats
+    DELETE WHERE timestamp < now() - INTERVAL %d DAY;`, OutdatedStatsPeriod)
 
 	_, err := s.conn.ExecContext(ctx, query)
 	if err != nil {
@@ -188,8 +191,8 @@ func (s *Storage) DeleteOutdatedStats(ctx context.Context) error {
 }
 
 func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
-	query := `ALTER TABLE aura.aggregated_user_hourly_data
-    DELETE WHERE timestamp < now() - INTERVAL 30 DAY;`
+	query := fmt.Sprintf(`ALTER TABLE aura.aggregated_user_hourly_data
+    DELETE WHERE timestamp < now() - INTERVAL %d DAY;`, OutdatedHourlyAggregatedDataPeriod)
 
 	_, err := s.conn.ExecContext(ctx, query)
 	if err != nil {
