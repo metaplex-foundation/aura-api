@@ -28,7 +28,7 @@ var (
 
 const (
 	APIKeysLimitReachedErrorText         = "API keys limit reached"
-	SubscriptionsChangeCooldawnErrorText = "Subscription changes are allowed only once every 24 hours."
+	SubscriptionsChangeCooldawnErrorText = "Subscription changes are allowed once per 24 hours."
 	InsufficientBalanceErrorText         = "Insufficient balance to change subscription."
 	CannotSwitchSubscriptionErrorText    = "Cannot switch to the selected subscription."
 )

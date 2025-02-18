@@ -271,7 +271,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
-		log.Logger.API.Errorf("updateAPIKeyHandler: fail to get user from context: %v", user)
+		log.Logger.API.Errorf("updateAPIKeyHandler: failed to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 	networkIDs := make([]int64, 0, len(params.Networks))
@@ -279,7 +279,7 @@ func (a *api) updateAPIKeyHandler(c echo.Context) (err error) {
 		nID, ok := a.availableNetworks[network]
 		if !ok {
 			log.Logger.API.Errorf("updateAPIKeyHandler: invalid network: %v", network)
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Selected invalid network: %s", network))
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid network selected: %s", network))
 		}
 		networkIDs = append(networkIDs, nID)
 	}
@@ -320,7 +320,7 @@ func (a *api) deleteAPIKeyHandler(c echo.Context) (err error) {
 
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
-		log.Logger.API.Errorf("deleteAPIKeyHandler: fail to get user from context: %v", user)
+		log.Logger.API.Errorf("deleteAPIKeyHandler: failed to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -487,7 +487,7 @@ func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
-		log.Logger.API.Errorf("updateSubscriptionPlan: fail to get user from context: %v", user)
+		log.Logger.API.Errorf("updateSubscriptionPlan: failed to get user from context: %v", user)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 	var params UpdateSubscriptionParams
