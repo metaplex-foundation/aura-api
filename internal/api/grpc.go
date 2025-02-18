@@ -10,6 +10,7 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
@@ -20,7 +21,7 @@ type auraServer struct {
 	pgStorage *postgres.Storage
 	chStorage clickhouse.Storage
 
-	pricing   PricingPlans
+	pricing   configtypes.PricingPlans
 	mplxPrice decimal.Decimal
 }
 
@@ -90,9 +91,9 @@ func (s *auraServer) GetSubscriptions(ctx context.Context, _ *emptypb.Empty) (*a
 				ApiTokensLimit:  sub.APITokensLimit,
 				PrioritySupport: sub.PrioritySupport,
 				Pricing: &auraProto.Pricing{
-					AuraDas: &auraProto.PricingModel{
-						RequestsPerSecond: sub.Pricing.AuraDAS.RequestsPerSecond,
-						PriceMplx:         sub.Pricing.AuraDAS.PriceMPLX,
+					SolanaDas: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.SolanaDAS.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.SolanaDAS.PriceMPLX,
 					},
 					EclipseDas: &auraProto.PricingModel{
 						RequestsPerSecond: sub.Pricing.EclipseDAS.RequestsPerSecond,
@@ -106,17 +107,29 @@ func (s *auraServer) GetSubscriptions(ctx context.Context, _ *emptypb.Empty) (*a
 						RequestsPerSecond: sub.Pricing.SolanaRPC.RequestsPerSecond,
 						PriceMplx:         sub.Pricing.SolanaRPC.PriceMPLX,
 					},
-					GetProgramAccounts: &auraProto.PricingModel{
-						RequestsPerSecond: sub.Pricing.GetProgramAccounts.RequestsPerSecond,
-						PriceMplx:         sub.Pricing.GetProgramAccounts.PriceMPLX,
+					SolanaGetProgramAccounts: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.SolanaGetProgramAccounts.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.SolanaGetProgramAccounts.PriceMPLX,
+					},
+					EclipseGetProgramAccounts: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.EclipseGetProgramAccounts.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.EclipseGetProgramAccounts.PriceMPLX,
 					},
 					SolanaSwqos: &auraProto.PricingModel{
 						RequestsPerSecond: sub.Pricing.SolanaSWQOS.RequestsPerSecond,
 						PriceMplx:         sub.Pricing.SolanaSWQOS.PriceMPLX,
 					},
-					Websocket: &auraProto.PricingModel{
-						RequestsPerSecond: sub.Pricing.Websocket.RequestsPerSecond,
-						PriceMplx:         sub.Pricing.Websocket.PriceMPLX,
+					EclipseSwqos: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.EclipseSWQOS.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.EclipseSWQOS.PriceMPLX,
+					},
+					SolanaWebsocket: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.SolanaWebsocket.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.SolanaWebsocket.PriceMPLX,
+					},
+					EclipseWebsocket: &auraProto.PricingModel{
+						RequestsPerSecond: sub.Pricing.EclipseWebsocket.RequestsPerSecond,
+						PriceMplx:         sub.Pricing.EclipseWebsocket.PriceMPLX,
 					},
 					MonthlyPriceMplx: monthlyPriceMplx,
 				},

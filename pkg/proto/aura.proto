@@ -36,6 +36,8 @@ message Stat {
   string provider = 17;
   int64 method_cost = 18;
   bool is_mainnet = 19;
+  int64 subscription_id = 20;
+  string request_type = 21;
 }
 
 message BatchInsertStatsReq {
@@ -80,14 +82,17 @@ message PricingModel {
 }
 
 message Pricing {
-  PricingModel aura_das = 1;
+  PricingModel solana_das = 1;
   PricingModel eclipse_das = 2;
   PricingModel eclipse_rpc = 3;
   PricingModel solana_rpc = 4;
-  PricingModel get_program_accounts = 5;
-  PricingModel solana_swqos = 6;
-  PricingModel websocket = 7;
-  int64 monthly_price_mplx = 8;
+  PricingModel solana_get_program_accounts = 5;
+  PricingModel eclipse_get_program_accounts = 6;
+  PricingModel solana_swqos = 7;
+  PricingModel eclipse_swqos = 8;
+  PricingModel solana_websocket = 9;
+  PricingModel eclipse_websocket = 10;
+  int64 monthly_price_mplx = 11;
 }
 
 message SubscriptionWithPricing {
