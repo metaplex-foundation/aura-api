@@ -36,6 +36,19 @@ func New(pgStorage postgres.Storage, chStorage clickhouse.Storage, consulClient 
 	return Collector{pgStorage: pgStorage, chStorage: chStorage, consulClient: consulClient}
 }
 
+func generateDateRange(maxDay time.Time) []time.Time {
+	var dates []time.Time
+	today := time.Now().Truncate(24 * time.Hour)
+	maxDay = maxDay.Truncate(24 * time.Hour)
+
+	// start from the day after maxDay
+	for d := maxDay.AddDate(0, 0, 1); d.Before(today); d = d.AddDate(0, 0, 1) {
+		dates = append(dates, d)
+	}
+
+	return dates
+}
+
 func (c *Collector) RunStatsCollector(ctx context.Context) {
 	cron := gocron.NewScheduler(time.UTC)
 	_, err := cron.Every(1).Day().At(dailyCollectorStartTime).Do(func() {
@@ -69,19 +82,36 @@ func (c *Collector) collectLatestStat(ctx context.Context) (err error) {
 	return nil
 }
 
-func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) (err error) {
+func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) error {
 	latestAggregatedDay, err := c.chStorage.GetLatestAggregatedRewardsDayByPlan(ctx, clickhouse.PayAsYouGo)
 	if err != nil {
 		return fmt.Errorf("GetLatestAggregatedRewardsDayByPlan: %s", err)
 	}
 
-	aggregatedPayAsYouGoStat, err := c.chStorage.GetProviderRequestStatsPayAsYouGoPlan(ctx, latestAggregatedDay)
-	if err != nil {
-		return fmt.Errorf("GetProviderRequestStatsPayAsYouGoPlan: %s", err)
+	// determine start date for aggregation
+	startDate := time.Now().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	if latestAggregatedDay != nil {
+		startDate = latestAggregatedDay.Time
 	}
 
-	err = c.chStorage.SaveAggregatedProvidersStat(ctx, aggregatedPayAsYouGoStat, clickhouse.PayAsYouGo)
-	if err != nil {
+	// generate date range
+	datesRange := generateDateRange(startDate)
+
+	var allStats []clickhouse.ProviderRequestStats
+
+	for _, date := range datesRange {
+		aggregatedStats, err := c.chStorage.GetProviderRequestStatsPayAsYouGoPlan(ctx, clickhouse.Date{date})
+		if err != nil {
+			return fmt.Errorf("GetProviderRequestStatsPayAsYouGoPlan for date %s: %s", date.Format("2006-01-02"), err)
+		}
+		allStats = append(allStats, aggregatedStats...)
+	}
+
+	if len(allStats) == 0 {
+		return nil
+	}
+
+	if err := c.chStorage.SaveAggregatedProvidersStat(ctx, allStats, clickhouse.PayAsYouGo); err != nil {
 		return fmt.Errorf("SaveAggregatedProvidersStat: %s", err)
 	}
 
@@ -94,9 +124,24 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 		return fmt.Errorf("GetLatestAggregatedRewardsDayByPlan: %s", err)
 	}
 
-	aggregatedSubscriptionStat, err := c.chStorage.GetProviderRequestStatsSubscriptionPlan(ctx, latestAggregatedDay)
-	if err != nil {
-		return fmt.Errorf("GetProviderRequestStatsSubscriptionPlan: %s", err)
+	// determine start date for aggregation
+	startDate := time.Now().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	if latestAggregatedDay != nil {
+		startDate = latestAggregatedDay.Time
+	}
+
+	// generate date range
+	datesRange := generateDateRange(startDate)
+
+	var allStats []clickhouse.ProviderRequestStats
+
+	for _, date := range datesRange {
+		aggregatedSubscriptionStat, err := c.chStorage.GetProviderRequestStatsSubscriptionPlan(ctx, clickhouse.Date{date})
+		if err != nil {
+			return fmt.Errorf("GetProviderRequestStatsSubscriptionPlan: %s", err)
+		}
+
+		allStats = append(allStats, aggregatedSubscriptionStat...)
 	}
 
 	// for subscription plan queries we take it's prices from Consul
@@ -153,19 +198,19 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 	assignPrice("eclipse", "Websocket", pricing.Pro.EclipseWebsocket)
 
 	// set price for each selected aggregated stat
-	for i := range aggregatedSubscriptionStat {
-		chain := aggregatedSubscriptionStat[i].Chain
-		requestType := aggregatedSubscriptionStat[i].RequestType
+	for i := range allStats {
+		chain := allStats[i].Chain
+		requestType := allStats[i].RequestType
 
 		price, exists := chainRequestTypePrice[chain][requestType]
 		if !exists {
 			return fmt.Errorf("missing price at Consul for chain: %s, request type: %s", chain, requestType)
 		}
 
-		aggregatedSubscriptionStat[i].RequestPrice = price
+		allStats[i].RequestPrice = price
 	}
 
-	err = c.chStorage.SaveAggregatedProvidersStat(ctx, aggregatedSubscriptionStat, clickhouse.Subscription)
+	err = c.chStorage.SaveAggregatedProvidersStat(ctx, allStats, clickhouse.Subscription)
 	if err != nil {
 		return fmt.Errorf("SaveAggregatedProvidersStat: %s", err)
 	}

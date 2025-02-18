@@ -38,8 +38,8 @@ func (pp PaymentPlan) String() string {
 	return paymentPlanName[pp]
 }
 
-func (s *Storage) GetLatestAggregatedRewardsDayByPlan(ctx context.Context, paymentPlan PaymentPlan) (date Date, err error) {
-	query := fmt.Sprintf(`SELECT toDate(MAX(time)) from aura.providers_requests_daily_summary WHERE payment_plan = '%s';`, paymentPlan.String())
+func (s *Storage) GetLatestAggregatedRewardsDayByPlan(ctx context.Context, paymentPlan PaymentPlan) (date *Date, err error) {
+	query := fmt.Sprintf(`SELECT MAX(time) FROM aura.providers_requests_daily_summary WHERE payment_plan = '%s';`, paymentPlan.String())
 
 	row := s.conn.QueryRow(query)
 
@@ -49,14 +49,19 @@ func (s *Storage) GetLatestAggregatedRewardsDayByPlan(ctx context.Context, payme
 		return date, fmt.Errorf("scan: %s", err)
 	}
 
-	if !nullableDate.Valid {
-		return Date{}, nil
+	// if table is empty request will return 0 unix date
+	if nullableDate.Time.Unix() == 0 {
+		return nil, nil
 	}
 
-	return Date{nullableDate.Time}, nil
+	if !nullableDate.Valid {
+		return nil, nil
+	}
+
+	return &Date{nullableDate.Time}, nil
 }
 
-func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, startFromDay Date) (result []ProviderRequestStats, err error) {
+func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, targetDay Date) (result []ProviderRequestStats, err error) {
 	query := fmt.Sprintf(`
 		SELECT
 			provider,
@@ -66,13 +71,12 @@ func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, sta
 			SUM(method_cost)/COUNT(*) as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
-			WHERE day > '%s'
-			AND day < today()
+			WHERE day = '%s'
 			AND subscription_id = 2
 			AND status = 200
 		GROUP BY provider, chain, request_type, day
 		ORDER BY day;
-	`, startFromDay.Format("2006-01-02"))
+	`, targetDay.Format("2006-01-02"))
 
 	rows, err := s.conn.Query(query)
 	if err != nil {
@@ -90,7 +94,9 @@ func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, sta
 	return result, nil
 }
 
-func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, startFromDay Date) (result []ProviderRequestStats, err error) {
+// Basically this query select all the requests except ones from pay-as-you-go plan.
+// Requests from free plans are selected because providers will be paid for it from subscription payment plan pools.
+func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, targetDay Date) (result []ProviderRequestStats, err error) {
 	query := fmt.Sprintf(`
 		SELECT
 			provider,
@@ -100,13 +106,12 @@ func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, s
 			method_cost as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
-			WHERE day > '%s'
-			AND day < today()
-			AND subscription_id >= 3
+			WHERE day = '%s'
+			AND subscription_id != 2
 			AND status = 200
 		GROUP BY provider, chain, request_type, day
 		ORDER BY day;
-	`, startFromDay.Format("2006-01-02"))
+	`, targetDay.Format("2006-01-02"))
 
 	rows, err := s.conn.Query(query)
 	if err != nil {
