@@ -85,40 +85,46 @@ func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amou
 }
 
 func (p *paymentsWatcher) watchPayments(ctx context.Context) {
+	// prevent rate-limit errors
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-		}
-		lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
-		if err != nil && !errors.Is(err, pg.ErrNoRows) {
-			log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
-		}
-		p.lastProcessedSignature = lastProcessedSig
-		unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
-		if err != nil && !errors.Is(err, pg.ErrNoRows) {
-			log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
-		}
-		p.unpaidMemos = unpaidMemos
+		case <-ticker.C:
+			lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
+			if err != nil && !errors.Is(err, pg.ErrNoRows) {
+				log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
+			}
+			p.lastProcessedSignature = lastProcessedSig
+			unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
+			if err != nil && !errors.Is(err, pg.ErrNoRows) {
+				log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
+			}
+			p.unpaidMemos = unpaidMemos
 
-		err = p.processNewTransfers(ctx)
-		if err != nil {
-			log.Logger.API.Errorf("watchPayments: processNewTransfers: %s", err)
+			err = p.processNewTransfers(ctx)
+			if err != nil {
+				log.Logger.API.Errorf("watchPayments: processNewTransfers: %s", err)
+			}
 		}
-		// prevent rate-limit errors
-		time.Sleep(250 * time.Millisecond)
 	}
 }
 
 func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) (err error) {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
 	for {
-		err = p.pgStorage.CancelUnpaidPayments(ctx)
-		if err != nil {
-			return fmt.Errorf("CancelUnpaidPayments: %s", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err = p.pgStorage.CancelUnpaidPayments(ctx)
+			if err != nil {
+				return fmt.Errorf("CancelUnpaidPayments: %s", err)
+			}
 		}
-
-		time.Sleep(10 * time.Minute)
 	}
 }
 

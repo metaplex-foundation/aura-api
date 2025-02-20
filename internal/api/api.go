@@ -92,11 +92,11 @@ const (
 	serverShutdownTimeout = time.Second * 5
 )
 
-func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
+func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //nolint:gocritic
 	// increase uuid generation productivity
 	uuid.EnableRandPool()
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithCancel(mainCtx)
 	defer func() {
 		if err != nil {
 			cancelFunc()
@@ -223,8 +223,8 @@ func NewAPI(cfg config.Config) (a *api, err error) { //nolint:gocritic
 	go a.listenConsul(ctx)
 	// TODO: consider consul
 	if cfg.API.IsFrontendAPI {
-		go paymentWatcher.watchPayments(ctx)
-		go paymentWatcher.cancelUnpaidPayments(ctx)
+		go paymentWatcher.watchPayments(mainCtx)
+		go paymentWatcher.cancelUnpaidPayments(mainCtx)
 	}
 
 	return a, nil
