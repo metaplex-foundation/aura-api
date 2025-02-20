@@ -553,9 +553,9 @@ func (a *api) getPaymentLink(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	paymentLink, err := a.paymentWatcher.generateSolanaPayPaymentLink(c.Request().Context(), amount, paymentType, u.ID)
+	paymentLink, err := a.paymentWatcher.generateSolanaPayPaymentLinkAndCancelOldUnpaidTxs(c.Request().Context(), amount, paymentType, u.ID)
 	if err != nil {
-		log.Logger.API.Errorf("getPaymentLink: generateSolanaPayPaymentLink: %s", err)
+		log.Logger.API.Errorf("getPaymentLink: generateSolanaPayPaymentLinkAndCancelOldUnpaidTxs: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 

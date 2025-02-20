@@ -55,7 +55,7 @@ func newPaymentsWatcher(rpcAddress string, pgStorage *postgres.Storage, paymentR
 	}, nil
 }
 
-func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amount, paymentType string, userID int64) (string, error) {
+func (p *paymentsWatcher) generateSolanaPayPaymentLinkAndCancelOldUnpaidTxs(ctx context.Context, amount, paymentType string, userID int64) (string, error) {
 	memoKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
 		return "", fmt.Errorf("NewRandomPrivateKey: %w", err)
@@ -76,9 +76,9 @@ func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amou
 	if err != nil {
 		return "", fmt.Errorf("NewFromString: %s", err)
 	}
-	err = p.pgStorage.CreateUnconfirmedPayment(ctx, memoKey.PublicKey(), userID, amountConverted.Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64())
+	err = p.pgStorage.CreateUnconfirmedPaymentAndCancelOldUnpaidTxs(ctx, memoKey.PublicKey(), userID, amountConverted.Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64())
 	if err != nil {
-		return "", fmt.Errorf("CreateUnconfirmedPayment: %w", err)
+		return "", fmt.Errorf("CreateUnconfirmedPaymentAndCancelOldUnpaidTxs: %w", err)
 	}
 
 	return u.String(), nil

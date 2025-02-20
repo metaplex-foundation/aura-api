@@ -24,6 +24,7 @@ type (
 		MplxAmount *int64     `pg:"crp_mplx_amount" json:"mplx_amount"`
 		CreatedAt  time.Time  `pg:"crp_created_at" json:"created_at"`
 		PaidAt     *time.Time `pg:"crp_paid_at" json:"paid_at"`
+		Status     string     `pg:"crp_status" json:"status"`
 	}
 	CryptoPaymentWithTotalCount struct {
 		Total int64 `pg:"total_count" json:"total_count"`
@@ -35,11 +36,33 @@ const (
 	paymentsTable = "crypto_payments"
 )
 
-func (s *Storage) CreateUnconfirmedPayment(ctx context.Context, memo solana.PublicKey, userID, mplxAmount int64) (err error) {
-	query := `INSERT INTO crypto_payments (crp_memo, usr_id, crp_mplx_amount) VALUES (?, ?, ?)`
-	_, err = s.db.ExecOneContext(ctx, query, memo.String(), userID, mplxAmount)
+func (s *Storage) CreateUnconfirmedPaymentAndCancelOldUnpaidTxs(ctx context.Context, memo solana.PublicKey, userID, mplxAmount int64) (err error) {
+	tx, err := s.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("beginTx: %s", err)
+	}
+	defer tx.Rollback()
+
+	cancelPreviousUnpaid := `
+	UPDATE crypto_payments
+	SET crp_status = 'cancelled'
+	WHERE usr_id = ? AND crp_status = 'unpaid';
+	`
+
+	_, err = tx.db.ExecContext(ctx, cancelPreviousUnpaid, userID)
+	if err != nil {
+		return fmt.Errorf("QueryContext: %w", err)
+	}
+
+	createNewPayment := `INSERT INTO crypto_payments (crp_memo, usr_id, crp_mplx_amount) VALUES (?, ?, ?)`
+	_, err = tx.db.ExecOneContext(ctx, createNewPayment, memo.String(), userID, mplxAmount)
 	if err != nil {
 		return fmt.Errorf("QueryOneContext: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("commit: %s", err)
 	}
 
 	return nil
@@ -57,7 +80,7 @@ func (s *Storage) UpdatePayments(ctx context.Context, transfers []TransferInfo) 
 	}
 	defer tx.Rollback() //nolint:errcheck
 	for _, transfer := range transfers {
-		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_paid_at = now() WHERE crp_memo = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL RETURNING usr_id`
+		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_status = 'paid', crp_paid_at = now() WHERE crp_memo = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL RETURNING usr_id`
 		var payment CryptoPayment
 		res, err := tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Memo.String())
 		if err != nil {
@@ -100,7 +123,7 @@ func (s *Storage) FetchLastProcessedSignature(ctx context.Context) (sig solana.S
 }
 
 func (s *Storage) FetchAllUnpaidMemos(ctx context.Context) (memos map[string]struct{}, err error) {
-	query := `SELECT crp_memo FROM crypto_payments WHERE crp_paid_at IS NULL`
+	query := `SELECT crp_memo FROM crypto_payments WHERE crp_paid_at IS NULL AND crp_status = 'unpaid'`
 	var payments []CryptoPayment
 	_, err = s.db.QueryContext(ctx, &payments, query)
 	if err != nil {
@@ -115,7 +138,7 @@ func (s *Storage) FetchAllUnpaidMemos(ctx context.Context) (memos map[string]str
 }
 
 func (s *Storage) CheckIfMemoPaid(ctx context.Context, memo string) (isPaid bool, err error) {
-	query := `SELECT crp_paid_at FROM crypto_payments WHERE crp_memo = ?`
+	query := `SELECT crp_paid_at FROM crypto_payments WHERE crp_status = 'unpaid' AND crp_memo = ?`
 	var payment CryptoPayment
 	_, err = s.db.QueryContext(ctx, &payment, query, memo)
 	if err != nil {
@@ -132,7 +155,7 @@ func (s *Storage) GetUserPaymentHistory(ctx context.Context, userID, limit, page
 	if page == 0 {
 		page = 1
 	}
-	query := `SELECT COUNT(*) OVER() AS total_count, crp_id, crp_memo, crp_signature, usr_id, crp_mplx_amount, crp_created_at, crp_paid_at
+	query := `SELECT COUNT(*) OVER() AS total_count, crp_id, crp_memo, crp_signature, usr_id, crp_mplx_amount, crp_created_at, crp_paid_at, crp_status
 					FROM crypto_payments WHERE usr_id = ? ORDER BY crp_created_at DESC LIMIT ? OFFSET ?`
 	_, err = s.db.QueryContext(ctx, &paymentHistory, query, userID, limit, (page-1)*limit)
 	if err != nil {

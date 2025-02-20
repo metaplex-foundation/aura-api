@@ -26,7 +26,6 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/api/config"
 	"github.com/adm-metaex/aura-api/internal/api/docs"
-	_ "github.com/adm-metaex/aura-api/internal/api/docs"
 	"github.com/adm-metaex/aura-api/internal/api/middlewares"
 	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
