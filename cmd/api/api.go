@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"time"
 
@@ -43,7 +44,8 @@ func main() {
 
 	log.Logger.API.Infof("Start service")
 
-	app, err := api.NewAPI(cfg)
+	mainCtx, cancelFn := context.WithCancel(context.Background())
+	app, err := api.NewAPI(mainCtx, cfg)
 	if err != nil {
 		log.Logger.API.Fatalf("NewAPI: %s", err)
 	}
@@ -73,5 +75,6 @@ func main() {
 		if err != nil {
 			log.Logger.API.Error(err.Error())
 		}
+		cancelFn()
 	})
 }
