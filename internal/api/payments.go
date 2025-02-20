@@ -111,6 +111,17 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 	}
 }
 
+func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) (err error) {
+	for {
+		err = p.pgStorage.CancelUnpaidPayments(ctx)
+		if err != nil {
+			return fmt.Errorf("CancelUnpaidPayments: %s", err)
+		}
+
+		time.Sleep(10 * time.Minute)
+	}
+}
+
 // TODO: consider user reusing reference in multiple txs
 func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 	allNewSignatures, err := p.fetchNewTransactionSignatures(ctx)
