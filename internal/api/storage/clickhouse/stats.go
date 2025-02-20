@@ -204,7 +204,7 @@ func (s *Storage) DeleteOutdatedHourlyData(ctx context.Context) error {
 
 func buildWhereCondition(builder sq.SelectBuilder, userUID string, tknUUID *uuid.UUID, chain *string, rpcMethod *string, isFromStats bool, isMainnet *bool) sq.SelectBuilder {
 	builder = builder.Where(sq.Eq{"user_uid": userUID})
-	if isMainnet != nil || (isMainnet == nil && !isFromStats) {
+	if isMainnet != nil || !isFromStats {
 		builder = builder.Where(sq.Eq{"is_mainnet": isMainnet}).GroupBy("is_mainnet")
 	}
 

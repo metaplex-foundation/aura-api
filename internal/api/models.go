@@ -58,6 +58,7 @@ type (
 		MplxAmount *int64     `json:"mplx_amount"`
 		CreatedAt  time.Time  `json:"created_at"`
 		PaidAt     *time.Time `json:"paid_at"`
+		Status     string     `json:"status"`
 	}
 	PaymentStatusHistoryResponse struct {
 		TotalCount int64                         `json:"total_count"`
@@ -305,6 +306,7 @@ func (p *PaymentStatusHistoryResponse) fromDBModels(payments []postgres.CryptoPa
 			MplxAmount: payments[i].MplxAmount,
 			CreatedAt:  payments[i].CreatedAt,
 			PaidAt:     payments[i].PaidAt,
+			Status:     payments[i].Status,
 		})
 	}
 }
