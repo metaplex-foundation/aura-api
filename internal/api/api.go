@@ -81,7 +81,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		}
 	}()
 
-	pgStorage, err := postgres.New(ctx, cfg.PG)
+	pgStorage, err := postgres.New(mainCtx, cfg.PG)
 	if err != nil {
 		return nil, fmt.Errorf("PG storage init: %s", err)
 	}
