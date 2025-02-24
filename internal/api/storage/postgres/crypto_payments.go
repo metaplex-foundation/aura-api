@@ -2,11 +2,11 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/go-pg/pg/v10"
 )
 
 type TransferInfo struct {
@@ -51,32 +51,36 @@ func (s *Storage) UpdatePayments(ctx context.Context, transfers []TransferInfo) 
 		return nil
 	}
 
-	// TODO: consider SELECT FOR UPDATE
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return fmt.Errorf("beginTx: %s", err)
+		return fmt.Errorf("beginTx: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+
 	for _, transfer := range transfers {
-		query := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_status = 'paid', crp_paid_at = now() WHERE crp_memo = ? AND crp_paid_at IS NULL AND crp_paid_at IS NULL AND crp_status = 'unpaid' RETURNING usr_id`
 		var payment CryptoPayment
-		res, err := tx.db.QueryOneContext(ctx, &payment, query, transfer.Signature.String(), transfer.Amount, transfer.Memo.String())
+		selectQuery := `SELECT * FROM crypto_payments WHERE crp_memo = ? AND crp_paid_at IS NULL AND crp_status = 'unpaid' FOR UPDATE SKIP LOCKED`
+		_, err := tx.db.QueryOneContext(ctx, &payment, selectQuery, transfer.Memo.String())
 		if err != nil {
-			return fmt.Errorf("QueryOneContext 1: %s", err)
-		}
-		if res.RowsAffected() != 1 {
-			return errors.New("RowsAffected != 1")
+			return fmt.Errorf("QueryOneContext (select): %w", err)
 		}
 
-		query = `UPDATE users SET usr_mplx_balance = usr_mplx_balance + ? WHERE usr_id = ?`
-		_, err = tx.db.ExecOneContext(ctx, query, transfer.Amount, payment.UserID)
+		updateQuery := `UPDATE crypto_payments SET crp_signature = ?, crp_mplx_amount = ?, crp_status = 'paid', crp_paid_at = NOW() WHERE crp_id = ?`
+		_, err = tx.db.ExecOneContext(ctx, updateQuery, transfer.Signature.String(), transfer.Amount, payment.ID)
 		if err != nil {
-			return fmt.Errorf("ExecOneContext 2: %s", err)
+			return fmt.Errorf("ExecOneContext (update): %w", err)
+		}
+
+		balanceUpdateQuery := `UPDATE users SET usr_mplx_balance = usr_mplx_balance + ? WHERE usr_id = ?`
+		_, err = tx.db.ExecOneContext(ctx, balanceUpdateQuery, transfer.Amount, payment.UserID)
+		if err != nil {
+			return fmt.Errorf("ExecOneContext (balance update): %w", err)
 		}
 	}
+
 	err = tx.Commit(ctx)
 	if err != nil {
-		return fmt.Errorf("commit: %s", err)
+		return fmt.Errorf("commit: %w", err)
 	}
 
 	return nil
@@ -142,12 +146,42 @@ func (s *Storage) GetUserPaymentHistory(ctx context.Context, userID, limit, page
 
 	return paymentHistory, nil
 }
-
-func (s *Storage) CancelUnpaidPayments(ctx context.Context) (err error) {
-	query := `UPDATE crypto_payments SET crp_status = 'cancelled' WHERE crp_status = 'unpaid' and NOW > crp_created_at + INTERVAL '3 hours'`
-	_, err = s.db.ExecContext(ctx, query)
+func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
+	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return fmt.Errorf("ExecContext: %w", err)
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var paymentIDs []int
+	selectQuery := `
+		SELECT crp_id FROM crypto_payments 
+		WHERE crp_status = 'unpaid' 
+		AND NOW() > crp_created_at + INTERVAL '3 hours'
+		FOR UPDATE SKIP LOCKED;`
+
+	_, err = tx.db.QueryContext(ctx, &paymentIDs, selectQuery)
+	if err != nil {
+		return fmt.Errorf("failed to select rows: %w", err)
+	}
+
+	if len(paymentIDs) == 0 {
+		return nil
+	}
+
+	updateQuery := `
+		UPDATE crypto_payments 
+		SET crp_status = 'cancelled' 
+		WHERE crp_id IN (?);`
+
+	_, err = tx.db.ExecContext(ctx, updateQuery, pg.In(paymentIDs))
+	if err != nil {
+		return fmt.Errorf("failed to update rows: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
