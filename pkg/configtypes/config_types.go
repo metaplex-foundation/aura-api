@@ -73,6 +73,7 @@ type (
 
 const (
 	ConsulPricingPath           = "config/aura-api/pricing"
+	ConsulMethodTypesPricesPath = "config/aura-api/methods/prices"
 	ConsulMplxPricePath         = "config/aura-api/mplx"
 	ConsulPaymentsRecipientPath = "config/aura-api/payments/recipient"
 )

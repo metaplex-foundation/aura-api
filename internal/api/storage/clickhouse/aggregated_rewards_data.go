@@ -103,7 +103,6 @@ func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, t
 			chain,
 			request_type,
 			COUNT(*) AS request_count,
-			method_cost as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
 			WHERE day = '%s'
@@ -121,7 +120,7 @@ func (s *Storage) GetProviderRequestStatsSubscriptionPlan(ctx context.Context, t
 
 	for rows.Next() {
 		var entry ProviderRequestStats
-		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.RequestType, &entry.RequestCount, &entry.RequestPrice, &entry.Day); err != nil {
+		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.RequestType, &entry.RequestCount, &entry.Day); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
 		result = append(result, entry)
