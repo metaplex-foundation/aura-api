@@ -147,15 +147,15 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 	// for subscription plan queries we take it's prices from Consul
 	// so even if price was changing during the day we will take only price at the end of a day
 	consulKV := c.consulClient.KV()
-	pair, _, err := consulKV.Get(configtypes.ConsulPricingPath, nil)
+	pair, _, err := consulKV.Get(configtypes.ConsulMethodTypesPricesPath, nil)
 	if err != nil {
-		return fmt.Errorf("consulKV.Get %s: %s", configtypes.ConsulPricingPath, err)
+		return fmt.Errorf("consulKV.Get %s: %s", configtypes.ConsulMethodTypesPricesPath, err)
 	}
 	if pair == nil || pair.Value == nil {
-		return fmt.Errorf("consulKV.Get %s: returned nil value", configtypes.ConsulPricingPath)
+		return fmt.Errorf("consulKV.Get %s: returned nil value", configtypes.ConsulMethodTypesPricesPath)
 	}
 
-	var pricing configtypes.PricingPlans
+	var pricing configtypes.PricingConfig
 	if err = json.Unmarshal(pair.Value, &pricing); err != nil {
 		return fmt.Errorf("PricingConfig: json.Unmarshal: %s", err)
 	}
@@ -185,17 +185,16 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 	}
 
 	// extract prices
-	// taking Pro subscription prices even though they are same as Advanced
-	assignPrice("solana", "DAS", pricing.Pro.SolanaDAS)
-	assignPrice("eclipse", "DAS", pricing.Pro.EclipseDAS)
-	assignPrice("solana", "RPC", pricing.Pro.SolanaRPC)
-	assignPrice("eclipse", "RPC", pricing.Pro.EclipseRPC)
-	assignPrice("solana", "GPA", pricing.Pro.SolanaGetProgramAccounts)
-	assignPrice("eclipse", "GPA", pricing.Pro.EclipseGetProgramAccounts)
-	assignPrice("solana", "SWQOS", pricing.Pro.SolanaSWQOS)
-	assignPrice("eclipse", "SWQOS", pricing.Pro.EclipseSWQOS)
-	assignPrice("solana", "Websocket", pricing.Pro.SolanaWebsocket)
-	assignPrice("eclipse", "Websocket", pricing.Pro.EclipseWebsocket)
+	assignPrice("solana", "DAS", pricing.SolanaDAS)
+	assignPrice("eclipse", "DAS", pricing.EclipseDAS)
+	assignPrice("solana", "RPC", pricing.SolanaRPC)
+	assignPrice("eclipse", "RPC", pricing.EclipseRPC)
+	assignPrice("solana", "GPA", pricing.SolanaGetProgramAccounts)
+	assignPrice("eclipse", "GPA", pricing.EclipseGetProgramAccounts)
+	assignPrice("solana", "SWQOS", pricing.SolanaSWQOS)
+	assignPrice("eclipse", "SWQOS", pricing.EclipseSWQOS)
+	assignPrice("solana", "Websocket", pricing.SolanaWebsocket)
+	assignPrice("eclipse", "Websocket", pricing.EclipseWebsocket)
 
 	// set price for each selected aggregated stat
 	for i := range allStats {
