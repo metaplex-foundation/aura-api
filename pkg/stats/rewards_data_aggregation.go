@@ -11,6 +11,7 @@ import (
 	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-co-op/gocron"
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/shopspring/decimal"
@@ -34,19 +35,6 @@ type Collector struct {
 func New(pgStorage postgres.Storage, chStorage clickhouse.Storage, consulClient consulAPI.Client) (c Collector) {
 
 	return Collector{pgStorage: pgStorage, chStorage: chStorage, consulClient: consulClient}
-}
-
-func generateDateRange(maxDay time.Time) []time.Time {
-	var dates []time.Time
-	today := time.Now().Truncate(24 * time.Hour)
-	maxDay = maxDay.Truncate(24 * time.Hour)
-
-	// start from the day after maxDay
-	for d := maxDay.AddDate(0, 0, 1); d.Before(today); d = d.AddDate(0, 0, 1) {
-		dates = append(dates, d)
-	}
-
-	return dates
 }
 
 func (c *Collector) RunStatsCollector(ctx context.Context) {
@@ -89,13 +77,13 @@ func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) error {
 	}
 
 	// determine start date for aggregation
-	startDate := time.Now().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
 	if latestAggregatedDay != nil {
 		startDate = latestAggregatedDay.Time
 	}
 
 	// generate date range
-	datesRange := generateDateRange(startDate)
+	datesRange := util.GenerateDateRange(startDate)
 
 	var allStats []clickhouse.ProviderRequestStats
 
@@ -125,13 +113,13 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 	}
 
 	// determine start date for aggregation
-	startDate := time.Now().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
 	if latestAggregatedDay != nil {
 		startDate = latestAggregatedDay.Time
 	}
 
 	// generate date range
-	datesRange := generateDateRange(startDate)
+	datesRange := util.GenerateDateRange(startDate)
 
 	var allStats []clickhouse.ProviderRequestStats
 
