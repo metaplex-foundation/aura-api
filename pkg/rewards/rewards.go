@@ -72,17 +72,22 @@ func (c *RewardsCalculator) RunRewardsCalculation(ctx context.Context) {
 }
 
 func (c *RewardsCalculator) CalculateAndSaveRewards(ctx context.Context) (err error) {
-	latestDayWithRewards, err := c.pgStorage.GetMaxAggregatedRewardsData(ctx)
+	latestDayWithRewards, err := c.pgStorage.GetMaxCalculatedRewardsData(ctx)
 	if err != nil {
-		return fmt.Errorf("GetMaxAggregatedRewardsData: %w", err)
+		return fmt.Errorf("GetMaxCalculatedRewardsData: %w", err)
 	}
 
-	startDate := time.Now().UTC().AddDate(0, 0, -1)
+	startDate := time.Now().UTC().AddDate(0, 0, -1).Truncate(24 * time.Hour)
 	if latestDayWithRewards != nil {
-		startDate = *latestDayWithRewards
+		// rewards for yesterday already calculated
+		if startDate == *latestDayWithRewards {
+			return nil
+		}
+
+		// add 1 day because we should not recalculate rewards for dates we already processed
+		startDate = latestDayWithRewards.AddDate(0, 0, 1).Truncate(24 * time.Hour)
 	}
 
-	// generate date range
 	datesRange := util.GenerateDateRange(startDate)
 
 	for _, date := range datesRange {

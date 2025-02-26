@@ -39,7 +39,7 @@ func (s *Storage) SaveProvidersRewards(ctx context.Context, rewards map[string]i
 	return nil
 }
 
-func (s *Storage) GetMaxAggregatedRewardsData(ctx context.Context) (day *time.Time, err error) {
+func (s *Storage) GetMaxCalculatedRewardsData(ctx context.Context) (day *time.Time, err error) {
 	query := `SELECT MAX(prw_day) AS day FROM providers_rewards;`
 
 	var result Date

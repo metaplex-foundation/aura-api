@@ -37,7 +37,7 @@ func (m *MockPGStorage) SaveProvidersRewards(ctx context.Context, rewards map[st
 	return args.Error(0)
 }
 
-func (m *MockPGStorage) GetMaxAggregatedRewardsData(ctx context.Context) (day *time.Time, err error) {
+func (m *MockPGStorage) GetMaxCalculatedRewardsData(ctx context.Context) (day *time.Time, err error) {
 	args := m.Called(ctx)
 	return args.Get(0).(*time.Time), args.Error(1)
 }

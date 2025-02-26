@@ -77,9 +77,17 @@ func (c *Collector) aggregateDataForPayAsYouGoPlan(ctx context.Context) error {
 	}
 
 	// determine start date for aggregation
-	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1)).Truncate(24 * time.Hour)
 	if latestAggregatedDay != nil {
-		startDate = latestAggregatedDay.Time
+		// we should not re-aggregate data for yesterday
+		// and we should exit the func because script can aggregate part of the today's data, which we should avoid
+		yesterday := time.Now().UTC().AddDate(0, 0, 1).Truncate(24 * time.Hour)
+		if latestAggregatedDay.Time.Truncate(24*time.Hour) == yesterday {
+			return nil
+		}
+
+		// add 1 day because we should not re-aggregate data for dates we already did it
+		startDate = latestAggregatedDay.Time.AddDate(0, 0, 1).Truncate(24 * time.Hour)
 	}
 
 	// generate date range
@@ -113,9 +121,17 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 	}
 
 	// determine start date for aggregation
-	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1))
+	startDate := time.Now().UTC().AddDate(0, 0, -(clickhouse.OutdatedStatsPeriod + 1)).Truncate(24 * time.Hour)
 	if latestAggregatedDay != nil {
-		startDate = latestAggregatedDay.Time
+		// we should not re-aggregate data for yesterday
+		// and we should exit the func because script can aggregate part of the today's data, which we should avoid
+		yesterday := time.Now().UTC().AddDate(0, 0, 1).Truncate(24 * time.Hour)
+		if latestAggregatedDay.Time.Truncate(24*time.Hour) == yesterday {
+			return nil
+		}
+
+		// add 1 day because we should not re-aggregate data for dates we already did it
+		startDate = latestAggregatedDay.Time.AddDate(0, 0, 1).Truncate(24 * time.Hour)
 	}
 
 	// generate date range
