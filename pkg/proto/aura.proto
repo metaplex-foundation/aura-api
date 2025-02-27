@@ -44,14 +44,22 @@ message BatchInsertStatsReq {
   repeated Stat stats = 1;
 }
 
+// user chain
 message IncreaseUserRequestsReq {
   map<string, UserRequestsByChain> reqs = 1;
 }
 
+// chain request_type
 message UserRequestsByChain {
-  map<string, UserRequestsByToken> reqs = 1;
+  map<string, UserRequestsByRequestType> reqs = 1;
 }
 
+// request_type token
+message UserRequestsByRequestType {
+  map<string, UserRequestsByToken> reqs =1;
+}
+
+// token detailed usage info
 message UserRequestsByToken {
   map<string, RequestsWithUsage> reqs = 1;
 }
