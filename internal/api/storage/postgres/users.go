@@ -31,6 +31,10 @@ type (
 		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
 		APIKeys            []string   `pg:"api_keys"`
 	}
+
+	Count struct {
+		Count int64
+	}
 )
 
 const (
@@ -175,4 +179,15 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 	}
 
 	return nil
+}
+
+func (s *Storage) GetCountOfSubscriptionUsersByDay(ctx context.Context, subscriptionId int, day time.Time) (count int64, err error) {
+	query := `SELECT COUNT(*) FROM users WHERE sbs_id = ? and usr_last_updated_plan_at <= ? and usr_sbs_ends_on >= ?;`
+	var result Count
+	_, err = s.db.QueryOneContext(ctx, &result, query, subscriptionId, day, day)
+	if err != nil {
+		return count, err
+	}
+
+	return result.Count, nil
 }

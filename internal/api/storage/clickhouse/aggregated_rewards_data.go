@@ -21,6 +21,20 @@ type (
 
 	// there is enum type in providers_requests_daily_summary ClickHouse table with two variants
 	PaymentPlan int
+
+	DailyAggregatedRequests struct {
+		RequestType  string `json:"request_type"`
+		Chain        string `json:"chain"`
+		RequestPrice int64  `json:"price_per_request"`
+		RequestCount int64  `json:"num_of_requests"`
+	}
+
+	DailyProvidersStat struct {
+		Provider     string `json:"provider"`
+		RequestType  string `json:"request_type"`
+		Chain        string `json:"chain"`
+		RequestCount int64  `json:"num_of_requests"`
+	}
 )
 
 const (
@@ -169,7 +183,7 @@ func (s *Storage) SaveAggregatedProvidersStat(ctx context.Context, aggregatedDat
 			stat.RequestCount,
 			stat.Day,
 		)
-		// TODO!: maybe convert Day with .format("...")
+
 		if err != nil {
 			return fmt.Errorf("exec statement error: %s", err)
 		}
@@ -181,4 +195,91 @@ func (s *Storage) SaveAggregatedProvidersStat(ctx context.Context, aggregatedDat
 	}
 
 	return nil
+}
+
+func (s *Storage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) (result []DailyAggregatedRequests, err error) {
+	// safe to use any() func here because price will alway be the same for pairs (request_type, chain)
+	query := fmt.Sprintf(`
+		SELECT
+			request_type,
+			chain,
+			any(price_per_request) as price_per_request,
+			SUM(num_of_requests) as num_of_requests
+		FROM aura.providers_requests_daily_summary
+			WHERE day = '%s'
+			AND payment_plan = 'pay-as-you-go'
+			group by (request_type, chain);
+	`, day.Format("2006-01-02"))
+
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return result, fmt.Errorf("query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry DailyAggregatedRequests
+		if err = rows.Scan(&entry.RequestType, &entry.Chain, &entry.RequestPrice, &entry.RequestCount); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+func (s *Storage) GetDailySubscriptionRequests(ctx context.Context, day time.Time) (result []DailyAggregatedRequests, err error) {
+	// safe to use any() func here because price will alway be the same for pairs (request_type, chain)
+	query := fmt.Sprintf(`
+		SELECT
+			request_type,
+			chain,
+			any(price_per_request) as price_per_request,
+			SUM(num_of_requests) as num_of_requests
+		FROM aura.providers_requests_daily_summary
+			WHERE day = '%s'
+			AND payment_plan = 'subscription'
+			group by (request_type, chain);
+	`, day.Format("2006-01-02"))
+
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return result, fmt.Errorf("query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry DailyAggregatedRequests
+		if err = rows.Scan(&entry.RequestType, &entry.Chain, &entry.RequestPrice, &entry.RequestCount); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+func (s *Storage) GetProvidersRequestsServed(ctx context.Context, day time.Time) (result []DailyProvidersStat, err error) {
+	query := fmt.Sprintf(`
+		SELECT
+			provider,
+			chain,
+			request_type,
+			num_of_requests
+		FROM aura.providers_requests_daily_summary
+			WHERE day = '%s';
+	`, day.Format("2006-01-02"))
+
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return result, fmt.Errorf("query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry DailyProvidersStat
+		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.RequestType, &entry.RequestCount); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
+		}
+		result = append(result, entry)
+	}
+	return result, nil
 }

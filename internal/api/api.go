@@ -34,6 +34,7 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/email"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/proto"
+	"github.com/adm-metaex/aura-api/pkg/rewards"
 	"github.com/adm-metaex/aura-api/pkg/stats"
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
@@ -62,7 +63,8 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	paymentRecipient solana.PublicKey
 	paymentWatcher   paymentsWatcher
 
-	statsCollector stats.Collector
+	statsCollector    stats.Collector
+	rewardsCalculator rewards.RewardsCalculator
 }
 
 const (
@@ -139,6 +141,8 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 	statsCollector := stats.New(pgStorage, chStorage, *consulClient)
 
+	rewardsCalculator := rewards.New(&pgStorage, &chStorage)
+
 	// TODO: add consul watching
 	g := grpc.NewServer()
 	proto.RegisterAuraServer(g, &auraServer{
@@ -169,7 +173,8 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		paymentRecipient:  paymentRecepient,
 		paymentWatcher:    paymentWatcher,
 
-		statsCollector: statsCollector,
+		statsCollector:    statsCollector,
+		rewardsCalculator: rewardsCalculator,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -203,6 +208,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 	}
 	go chStorage.RunStatsAggregator(ctx)
 	go a.statsCollector.RunStatsCollector(ctx)
+	go a.rewardsCalculator.RunRewardsCalculation(ctx)
 	go a.listenConsul(ctx)
 	// TODO: consider consul
 	if cfg.API.IsFrontendAPI {
