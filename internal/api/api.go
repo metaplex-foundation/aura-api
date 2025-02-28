@@ -228,6 +228,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 		go paymentWatcher.watchPayments(mainCtx)
 		go paymentWatcher.cancelUnpaidPayments(mainCtx)
+		go paymentWatcher.resetExpiredPaymentPlans(mainCtx)
 	}
 
 	return a, nil

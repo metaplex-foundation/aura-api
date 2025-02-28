@@ -186,3 +186,58 @@ func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
 
 	return nil
 }
+
+func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
+	tx, err := s.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var usersIDs []int
+	selectQuery := `
+		SELECT usr_id FROM users 
+		WHERE sbs_id != 1 AND NOW() > usr_sbs_ends_on
+		FOR UPDATE SKIP LOCKED;
+	`
+
+	_, err = tx.db.QueryContext(ctx, &usersIDs, selectQuery)
+	if err != nil {
+		return fmt.Errorf("failed to select rows: %w", err)
+	}
+
+	if len(usersIDs) == 0 {
+		return nil
+	}
+
+	updateQuery := `
+		UPDATE users 
+		SET sbs_id = CASE 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			THEN next_sbs_id 
+			ELSE 1 
+		END, 
+		usr_sbs_ends_on = CASE 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			THEN NOW() + INTERVAL '1 month' 
+			ELSE NULL 
+		END,
+		usr_mplx_balance = CASE 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			THEN usr_mplx_balance - (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			ELSE usr_mplx_balance 
+		END
+		WHERE usr_id IN (?);`
+
+	_, err = tx.db.ExecContext(ctx, updateQuery, pg.In(usersIDs))
+	if err != nil {
+		return fmt.Errorf("failed to update rows: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
