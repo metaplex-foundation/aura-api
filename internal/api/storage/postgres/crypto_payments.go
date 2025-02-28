@@ -146,6 +146,7 @@ func (s *Storage) GetUserPaymentHistory(ctx context.Context, userID, limit, page
 
 	return paymentHistory, nil
 }
+
 func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
@@ -230,6 +231,56 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 		WHERE usr_id IN (?);`
 
 	_, err = tx.db.ExecContext(ctx, updateQuery, pg.In(usersIDs))
+	if err != nil {
+		return fmt.Errorf("failed to update rows: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) CancelCurrentSubscription(ctx context.Context, userID, nextSubscriptionId int64) error {
+	tx, err := s.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	updateQuery := `
+		UPDATE users 
+		SET next_sbs_id = ?,
+		WHERE usr_id = ?;`
+
+	_, err = tx.db.ExecContext(ctx, updateQuery)
+	if err != nil {
+		return fmt.Errorf("failed to update rows: %w", err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) UndoSubscriptionCancellation(ctx context.Context, userID int64) error {
+	tx, err := s.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	updateQuery := `
+		UPDATE users 
+		SET next_sbs_id = sbs_id,
+		WHERE usr_id = ?;`
+
+	_, err = tx.db.ExecContext(ctx, updateQuery)
 	if err != nil {
 		return fmt.Errorf("failed to update rows: %w", err)
 	}
