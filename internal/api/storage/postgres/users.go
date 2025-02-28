@@ -153,14 +153,16 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 	for userID, chains := range req.GetReqs() {
 		// Sum all credits for the user
 		var totalCredits int64
-		for _, tokens := range chains.GetReqs() {
-			for token, reqWithUsage := range tokens.GetReqs() {
-				query := `UPDATE user_api_keys SET uak_total_requests = uak_total_requests + ?, uak_last_used_at = now() WHERE uak_token = ?`
-				_, err = tx.db.Exec(query, reqWithUsage.GetReqs(), token)
-				if err != nil {
-					return fmt.Errorf("exec token %s: %w", token, err)
+		for _, reqType := range chains.GetReqs() {
+			for _, tokens := range reqType.GetReqs() {
+				for token, reqWithUsage := range tokens.GetReqs() {
+					query := `UPDATE user_api_keys SET uak_total_requests = uak_total_requests + ?, uak_last_used_at = now() WHERE uak_token = ?`
+					_, err = tx.db.Exec(query, reqWithUsage.GetReqs(), token)
+					if err != nil {
+						return fmt.Errorf("exec token %s: %w", token, err)
+					}
+					totalCredits += reqWithUsage.GetUsage()
 				}
-				totalCredits += reqWithUsage.GetUsage()
 			}
 		}
 
