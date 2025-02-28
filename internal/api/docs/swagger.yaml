@@ -114,6 +114,8 @@ definitions:
         $ref: '#/definitions/api.SubscriptionWithPricing'
       subscription_ends_on:
         type: string
+      next_subscription:
+        $ref: '#/definitions/api.SubscriptionWithPricing'
     type: object
   clickhouse.CreditsUsageHistory:
     properties:

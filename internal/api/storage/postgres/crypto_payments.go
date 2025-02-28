@@ -214,18 +214,18 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 	updateQuery := `
 		UPDATE users 
 		SET sbs_id = CASE 
-			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
-			THEN next_sbs_id 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
+			THEN usr_next_sbs_id 
 			ELSE 1 
 		END, 
 		usr_sbs_ends_on = CASE 
-			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
 			THEN NOW() + INTERVAL '1 month' 
 			ELSE NULL 
 		END,
 		usr_mplx_balance = CASE 
-			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
-			THEN usr_mplx_balance - (SELECT sbs_price FROM subscriptions WHERE sbs_id = next_sbs_id) 
+			WHEN usr_mplx_balance >= (SELECT sbs_price FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
+			THEN usr_mplx_balance - (SELECT sbs_price FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
 			ELSE usr_mplx_balance 
 		END
 		WHERE usr_id IN (?);`
@@ -252,7 +252,7 @@ func (s *Storage) CancelCurrentSubscription(ctx context.Context, userID, nextSub
 
 	updateQuery := `
 		UPDATE users 
-		SET next_sbs_id = ?,
+		SET usr_next_sbs_id = ?,
 		WHERE usr_id = ?;`
 
 	_, err = tx.db.ExecContext(ctx, updateQuery)
@@ -277,7 +277,7 @@ func (s *Storage) UndoSubscriptionCancellation(ctx context.Context, userID int64
 
 	updateQuery := `
 		UPDATE users 
-		SET next_sbs_id = sbs_id,
+		SET usr_next_sbs_id = sbs_id,
 		WHERE usr_id = ?;`
 
 	_, err = tx.db.ExecContext(ctx, updateQuery)

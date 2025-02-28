@@ -92,7 +92,18 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurr
 		return u, ErrEmptyDynamicID
 	}
 
-	query := `SELECT usr_id, usr_dynamic_id, usr_created_at, usr_mplx_balance, usr_last_updated_plan_at, sbs_id, usr_sbs_ends_on, sbs_priority, sbs_name, sbs_tokens_limit, sbs_created_at
+	query := `SELECT usr_id, 
+					 usr_dynamic_id, 
+					 usr_created_at, 
+					 usr_mplx_balance, 
+					 usr_last_updated_plan_at,
+					 usr_next_sbs_id, 
+					 sbs_id, 
+					 usr_sbs_ends_on, 
+					 sbs_priority, 
+					 sbs_name, 
+					 sbs_tokens_limit, 
+					 sbs_created_at
 				FROM users 
     			LEFT JOIN subscriptions USING(sbs_id)
 				WHERE usr_dynamic_id = ?`
