@@ -28,7 +28,7 @@ func (s *Storage) SaveProvidersRewards(ctx context.Context, rewards map[string]i
 	for provider, rewards := range rewards {
 		_, err = tx.db.ExecOne(query, provider, rewards, day)
 		if err != nil {
-			return fmt.Errorf("ExecOne: %s", err)
+			return fmt.Errorf("ExecOne: %w", err)
 		}
 	}
 
