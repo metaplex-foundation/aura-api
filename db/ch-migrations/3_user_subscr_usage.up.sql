@@ -10,7 +10,7 @@ CREATE TABLE aura.user_subscription_usage_new
     `is_mainnet` Nullable(Bool)
 )
 ENGINE = ReplacingMergeTree
-ORDER BY (time, user_uid, tkn_uuid, chain, is_mainnet)
+ORDER BY (time, user_uid, tkn_uuid, chain, request_type, is_mainnet)
 SETTINGS allow_nullable_key = 1, index_granularity = 8192;
 
 -- Migrate the data with transformations

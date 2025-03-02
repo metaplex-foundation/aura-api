@@ -15,6 +15,7 @@ func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecent
    	INSERT INTO aura.aggregated_analysis_data
 	SELECT
 	    chain,
+		request_type,
 	    rpc_method,
 	    rpc_request_data,
 	    provider,
@@ -26,7 +27,7 @@ func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecent
 	    is_mainnet
 	FROM aura.stats
 	WHERE day < toDate(now(), 'Etc/UTC') %s
-	GROUP BY chain, is_mainnet, provider, rpc_method, rpc_request_data, day
+	GROUP BY chain, request_type, is_mainnet, provider, rpc_method, rpc_request_data, day
     `, selectRecentDataCondition)
 	_, err := s.conn.ExecContext(ctx, query)
 	if err != nil {
