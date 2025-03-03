@@ -276,6 +276,8 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	protectedGroup := a.router.Group("", authMW)
 	protectedGroup.GET("/user", a.getUserHandler)
 	protectedGroup.PATCH("/plan", a.updateSubscriptionPlan)
+	protectedGroup.POST("/plan/downgrade", a.downgradeSubscriptionPlan)
+	protectedGroup.POST("/plan/undo_downgrading", a.undoSubscriptionPlanDowngrading)
 	// API keys
 	apiKeysGroup := protectedGroup.Group("/keys")
 	apiKeysGroup.GET("", a.apiKeysHandler)

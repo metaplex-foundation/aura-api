@@ -96,6 +96,7 @@ type (
 		LastUpdatedPlanAt  time.Time               `json:"last_updated_plan_at"`
 		SubscriptionEndsOn time.Time               `json:"subscription_ends_on"`
 		Subscription       SubscriptionWithPricing `json:"subscription"`
+		NextSubscription   SubscriptionWithPricing `json:"next_subscription"`
 	}
 	UIPricing struct {
 		RequestsPerSecond int32 `json:"requests_per_second"`
@@ -160,6 +161,7 @@ func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan,
 	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
 	u.SubscriptionEndsOn = user.User.SubscriptionEndsOn
 	u.Subscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
+	u.NextSubscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
 	return u
 }
 

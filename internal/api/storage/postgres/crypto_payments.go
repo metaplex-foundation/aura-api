@@ -243,19 +243,40 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 	return nil
 }
 
-func (s *Storage) CancelCurrentSubscription(ctx context.Context, userID, nextSubscriptionId int64) error {
+func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, nextSubscriptionId int64) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
 	defer tx.Rollback()
 
+	var currentSubscriptionId, currentPriority, nextPriority int64
+	var lastChangedAt time.Time
+	query := `
+		SELECT u.sbs_id, cs.sbs_priority, cs.last_changed_at, ns.sbs_priority
+		FROM users u
+		JOIN subscriptions cs ON u.sbs_id = cs.sbs_id
+		JOIN subscriptions ns ON ns.sbs_id = ?
+		WHERE u.usr_id = ?`
+	_, err = tx.db.QueryOneContext(ctx, pg.Scan(&currentSubscriptionId, &currentPriority, &lastChangedAt, &nextPriority), query, nextSubscriptionId, userID)
+	if err != nil {
+		return fmt.Errorf("failed to select subscription priorities: %w", err)
+	}
+
+	if time.Since(lastChangedAt) < 24*time.Hour {
+		return fmt.Errorf("downgrade not allowed: last subscription change was less than 24 hours ago")
+	}
+
+	if nextPriority >= currentPriority {
+		return fmt.Errorf("downgrade not allowed: next subscription priority is not lower than current subscription")
+	}
+
 	updateQuery := `
 		UPDATE users 
-		SET usr_next_sbs_id = ?,
+		SET usr_next_sbs_id = ?
 		WHERE usr_id = ?;`
 
-	_, err = tx.db.ExecContext(ctx, updateQuery)
+	_, err = tx.db.ExecContext(ctx, updateQuery, nextSubscriptionId, userID)
 	if err != nil {
 		return fmt.Errorf("failed to update rows: %w", err)
 	}
@@ -268,7 +289,7 @@ func (s *Storage) CancelCurrentSubscription(ctx context.Context, userID, nextSub
 	return nil
 }
 
-func (s *Storage) UndoSubscriptionCancellation(ctx context.Context, userID int64) error {
+func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)

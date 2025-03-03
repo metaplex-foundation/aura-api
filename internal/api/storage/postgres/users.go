@@ -23,6 +23,7 @@ type (
 	UserWithCurrentPlan struct {
 		User
 		Plan
+		NextPlan Plan `pg:"next_sbs_" json:"next_plan"`
 	}
 	UserWithAPIKeys struct {
 		DynamicID          string     `pg:"usr_dynamic_id"`
@@ -98,14 +99,22 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurr
 					 usr_mplx_balance, 
 					 usr_last_updated_plan_at,
 					 usr_next_sbs_id, 
-					 sbs_id, 
 					 usr_sbs_ends_on, 
+
+					 sbs_id, 
 					 sbs_priority, 
 					 sbs_name, 
 					 sbs_tokens_limit, 
-					 sbs_created_at
+					 sbs_created_at,
+
+					 next_sbs.sbs_id as next_sbs_id,
+					 next_sbs.sbs_priority as next_sbs_priority,
+					 next_sbs.sbs_name as next_sbs_name,
+					 next_sbs.sbs_tokens_limit as next_sbs_tokens_limit,
+					 next_sbs.sbs_created_at as next_sbs_created_at
 				FROM users 
     			LEFT JOIN subscriptions USING(sbs_id)
+				LEFT JOIN subscritpions AS next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
 				WHERE usr_dynamic_id = ?`
 	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
 	if err != nil {

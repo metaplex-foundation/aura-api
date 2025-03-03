@@ -517,6 +517,90 @@ func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 	return c.NoContent(http.StatusOK)
 }
 
+// downgradeSubscriptionPlan godoc
+//
+//	@Summary		Downgrade subscription plan
+//	@Description	Downgrade subscription plan
+//	@Tags			users
+//	@Produce		json
+//	@Param			request_body	body		UpdateSubscriptionParams	true	"Subscription ID to which the current plan will be changed at the end of the subscription period"
+//	@Success		200				{string}	string						"Subscription was changed successfully. Return empty string"
+//	@Failure		400				{object}	error						"Subscription changes are allowed only once every 24 hours."
+//	@Failure		400				{object}	error						"Cannot switch to the selected subscription."
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/plan/undo_downgrading [post]
+func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("updateSubscriptionPlan: failed to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	var params UpdateSubscriptionParams
+	if err = c.Bind(&params); err != nil {
+		return err
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	err = a.pgStorage.DowngradeCurrentSubscription(c.Request().Context(), u.ID, params.SubscriptionID)
+	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
+	}
+	if postgres.IsErrInvalidSubscriptionID(err) {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
+	}
+	if err != nil {
+		log.Logger.API.Errorf("cancelSubscriptionPlan: CancelCurrentSubscription: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+// undoSubscriptionPlanDowngrading godoc
+//
+//	@Summary		Undo downgrading of a subscription plan
+//	@Description	Undo downgrading of a subscription plan
+//	@Tags			users
+//	@Produce		json
+//	@Success		200				{string}	string		"Subscription was cancelled successfully. Return empty string"
+//	@Failure		401				{object}	error
+//	@Failure		500				{object}	error
+//	@Security		ApiKeyAuth
+//	@Router			/plan/cancel [post]
+func (a *api) undoSubscriptionPlanDowngrading(c echo.Context) (err error) {
+	user := c.(*echoUtil.CustomContext).GetDynamicUser()
+	if user == nil || user.ID == "" {
+		log.Logger.API.Errorf("updateSubscriptionPlan: failed to get user from context: %v", user)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	u, err := a.pgStorage.GetOrCreateUser(c.Request().Context(), user.ID)
+	if err != nil {
+		if errors.Is(err, pg.ErrNoRows) {
+			return echo.NewHTTPError(http.StatusNotFound, ErrUserNotFound)
+		}
+		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+	err = a.pgStorage.UndoSubscriptionDowngrading(c.Request().Context(), u.ID)
+	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
+	}
+	if err != nil {
+		log.Logger.API.Errorf("undoSubscriptionPlanDowngrading: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 // getPaymentLink godoc
 //
 //	@Summary		Get payment link
