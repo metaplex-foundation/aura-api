@@ -63,3 +63,4 @@ CREATE OR REPLACE TRIGGER trg_check_and_update_subscription
     BEFORE UPDATE OF sbs_id ON users
     FOR EACH ROW
     EXECUTE FUNCTION check_and_update_subscription();
+    

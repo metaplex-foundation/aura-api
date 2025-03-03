@@ -483,8 +483,8 @@ func (a *api) getSubscriptionPlans(c echo.Context) (err error) {
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/plan [patch]
-func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
+//	@Router			/plan/upgrade [patch]
+func (a *api) upgradeSubscriptionPlan(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
 		log.Logger.API.Errorf("updateSubscriptionPlan: failed to get user from context: %v", user)
@@ -502,7 +502,7 @@ func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	err = a.pgStorage.UpdateUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID)
+	err = a.pgStorage.UpgradeUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID)
 	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, *updateSubscriptionErrorMessage)
 	}
@@ -510,7 +510,7 @@ func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
 	}
 	if err != nil {
-		log.Logger.API.Errorf("updateSubscriptionPlan: UpdateUserSubscriptionPlan: %s", err)
+		log.Logger.API.Errorf("upgradeSubscriptionPlan: UpgradeUserSubscriptionPlan: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
@@ -530,7 +530,7 @@ func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/plan/undo_downgrading [post]
+//	@Router			/plan/downgrade [patch]
 func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
@@ -570,11 +570,11 @@ func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 //	@Description	Undo downgrading of a subscription plan
 //	@Tags			users
 //	@Produce		json
-//	@Success		200				{string}	string		"Subscription was cancelled successfully. Return empty string"
+//	@Success		200				{string}	string		"Subscription cancellation has been undone successfully. Return empty string"
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
 //	@Security		ApiKeyAuth
-//	@Router			/plan/cancel [post]
+//	@Router			/plan/undo_downgrading [patch]
 func (a *api) undoSubscriptionPlanDowngrading(c echo.Context) (err error) {
 	user := c.(*echoUtil.CustomContext).GetDynamicUser()
 	if user == nil || user.ID == "" {
