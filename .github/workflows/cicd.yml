@@ -40,6 +40,7 @@ jobs:
           fetch-depth: 0
 
       - name: Define Application Variables
+        id: define_vars
         run: |
           echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
           ver=$(
@@ -115,6 +116,8 @@ jobs:
     name: Continuous Deployment
     needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
