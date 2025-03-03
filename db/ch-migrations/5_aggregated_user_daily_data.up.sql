@@ -1,54 +1,35 @@
 -- Create the new table with identical structure as the original table
-CREATE TABLE aura.stats_new
+
+CREATE TABLE aura.aggregated_user_daily_data_new
 (
     `user_uid` String,
     `tkn_uuid` UUID,
-    `request_uuid` UUID,
-    `status` UInt16,
-    `execution_time_ms` Int64,
-    `endpoint` String,
-    `attempts` UInt8,
-    `response_time_ms` Int64,
-    `rpc_error_code` String,
-    `user_agent` String,
+    `day` Date,
     `rpc_method` String,
-    `rpc_request_data` String,
-    `timestamp` DateTime,
-    `server_id` String,
-    `provider` String,
-    `method_cost` Int64,
     `chain` String,
-    `response_size_bytes` Int64,
-    `target_type` String,
-    `is_mainnet` UInt8,
     `request_type` String, -- Add the new request_type column
-    `subscription_id` Int64 -- Add the new subscription_id column
+    `total_req` UInt64,
+    `success_req` UInt64,
+    `http_err` UInt64,
+    `rpc_err` UInt64,
+    `response_size_bytes` Int64,
+    `avg_response_time_ms` Int64,
+    `p95_response_time_ms` Int64,
+    `is_mainnet` Nullable(Bool)
 )
 ENGINE = ReplacingMergeTree
-ORDER BY (user_uid, tkn_uuid, request_uuid)
-SETTINGS index_granularity = 8192;
+ORDER BY (user_uid, tkn_uuid, day, rpc_method, chain, request_type, is_mainnet)
+SETTINGS allow_nullable_key = 1, index_granularity = 8192;
 
 -- Migrate the data with transformations
 -- First determine the request_type based on original chain values
 -- Then set the chain values according to the requirements
-INSERT INTO aura.stats_new
+INSERT INTO aura.aggregated_user_daily_data_new
 SELECT
     user_uid,
     tkn_uuid,
-    request_uuid,
-    status,
-    execution_time_ms,
-    endpoint,
-    attempts,
-    response_time_ms,
-    rpc_error_code,
-    user_agent,
+    day,
     rpc_method,
-    rpc_request_data,
-    timestamp,
-    server_id,
-    provider,
-    method_cost,
     -- Transform the chain value
     CASE
         WHEN original_chain = 'solana-das' THEN 'solana'
@@ -58,9 +39,6 @@ SELECT
         WHEN original_chain = 'eclipse' THEN 'eclipse'
         ELSE original_chain
     END AS chain,
-    response_size_bytes,
-    target_type,
-    is_mainnet,
     -- Set the request_type based on the ORIGINAL chain value
     CASE
         WHEN original_chain = 'solana' THEN 'RPC'
@@ -68,39 +46,36 @@ SELECT
         WHEN original_chain = 'getProgramAccounts' THEN 'GPA'
         WHEN original_chain = 'eclipse' THEN 'RPC'
         WHEN original_chain = 'eclipse-das' THEN 'DAS'
-        ELSE 'RPC' -- Default value for any unexpected cases
+        ELSE original_chain
     END AS request_type,
-    CASE 
-        WHEN method_cost > 0 THEN 2
-        ELSE 1
-    END AS subscription_id
+    total_req,
+    success_req,
+    http_err,
+    rpc_err,
+    response_size_bytes,
+    avg_response_time_ms,
+    p95_response_time_ms,
+    is_mainnet
 FROM (
     SELECT
         user_uid,
         tkn_uuid,
-        request_uuid,
-        status,
-        execution_time_ms,
-        endpoint,
-        attempts,
-        response_time_ms,
-        rpc_error_code,
-        user_agent,
+        day,
         rpc_method,
-        rpc_request_data,
-        timestamp,
-        server_id,
-        provider,
-        method_cost,
         chain AS original_chain,
+        total_req,
+        success_req,
+        http_err,
+        rpc_err,
         response_size_bytes,
-        target_type,
+        avg_response_time_ms,
+        p95_response_time_ms,
         is_mainnet
-    FROM aura.stats
+    FROM aura.aggregated_user_daily_data
 ) as original_data;
 
 -- Drop the old table
-DROP TABLE aura.stats;
+DROP TABLE aura.aggregated_user_daily_data;
 
 -- Rename the new table to the original name
-RENAME TABLE aura.stats_new TO aura.stats;
+RENAME TABLE aura.aggregated_user_daily_data_new TO aura.aggregated_user_daily_data;

@@ -1,51 +1,32 @@
 -- Create a temporary table without the request_type column (to match original structure)
-CREATE TABLE aura.stats_temp
+CREATE TABLE aura.aggregated_user_daily_data_temp
 (
     `user_uid` String,
     `tkn_uuid` UUID,
-    `request_uuid` UUID,
-    `status` UInt16,
-    `execution_time_ms` Int64,
-    `endpoint` String,
-    `attempts` UInt8,
-    `response_time_ms` Int64,
-    `rpc_error_code` String,
-    `user_agent` String,
+    `day` Date,
     `rpc_method` String,
-    `rpc_request_data` String,
-    `timestamp` DateTime,
-    `server_id` String,
-    `provider` String,
-    `method_cost` Int64,
     `chain` String,
+    `total_req` UInt64,
+    `success_req` UInt64,
+    `http_err` UInt64,
+    `rpc_err` UInt64,
     `response_size_bytes` Int64,
-    `target_type` String,
-    `is_mainnet` UInt8
+    `avg_response_time_ms` Int64,
+    `p95_response_time_ms` Int64,
+    `is_mainnet` Nullable(Bool)
 )
 ENGINE = ReplacingMergeTree
-ORDER BY (user_uid, tkn_uuid, request_uuid)
-SETTINGS index_granularity = 8192;
+ORDER BY (user_uid, tkn_uuid, day, rpc_method, chain, is_mainnet)
+SETTINGS allow_nullable_key = 1, index_granularity = 8192;
 
 -- Migrate the data back with reverse transformations
 -- Convert chain values back to their original values based on the request_type
-INSERT INTO aura.stats_temp
+INSERT INTO aura.aggregated_user_daily_data_temp
 SELECT
     user_uid,
     tkn_uuid,
-    request_uuid,
-    status,
-    execution_time_ms,
-    endpoint,
-    attempts,
-    response_time_ms,
-    rpc_error_code,
-    user_agent,
+    day,
     rpc_method,
-    rpc_request_data,
-    timestamp,
-    server_id,
-    provider,
-    method_cost,
     -- Reverse the chain transformation based on request_type
     CASE
         WHEN chain = 'solana' AND request_type = 'RPC' THEN 'solana'
@@ -60,13 +41,18 @@ SELECT
         WHEN chain = 'eclipse' AND request_type = 'Websocket' THEN 'eclipse'
         ELSE chain
     END AS chain,
+    total_req,
+    success_req,
+    http_err,
+    rpc_err,
     response_size_bytes,
-    target_type,
+    avg_response_time_ms,
+    p95_response_time_ms,
     is_mainnet
-FROM aura.stats;
+FROM aura.aggregated_user_daily_data;
 
 -- Drop the current table
-DROP TABLE aura.stats;
+DROP TABLE aura.aggregated_user_daily_data;
 
 -- Rename the temporary table to the original name
-RENAME TABLE aura.stats_temp TO aura.stats;
+RENAME TABLE aura.aggregated_user_daily_data_temp TO aura.aggregated_user_daily_data;
