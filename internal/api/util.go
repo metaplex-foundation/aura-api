@@ -13,16 +13,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/shopspring/decimal"
 
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
 )
 
 const (
 	mimeTextCSV = "text/csv"
-)
-const (
-	consulPricingPath           = "config/aura-api/pricing"
-	consulMplxPricePath         = "config/aura-api/mplx"
-	consulPaymentsRecipientPath = "config/aura-api/payments/recipient"
 )
 
 func csvResp(c echo.Context, res interface{}, fileName string) error {
@@ -56,16 +52,16 @@ func (a *api) listenConsul(ctx context.Context) {
 				WaitIndex: lastIndex,
 				WaitTime:  time.Minute,
 			}
-			pair, meta, err := a.consulKV.Get(consulPricingPath, queryOpts)
+			pair, meta, err := a.consulKV.Get(configtypes.ConsulPricingPath, queryOpts)
 			if err != nil {
-				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulPricingPath, err)
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", configtypes.ConsulPricingPath, err)
 				continue
 			}
 
 			if pair != nil && meta.LastIndex > lastIndex {
-				var pricing PricingPlans
+				var pricing configtypes.PricingPlans
 				if err = json.Unmarshal(pair.Value, &pricing); err != nil {
-					log.Logger.API.Errorf("listenConsul: json.Unmarshal %s: %s", consulPricingPath, err)
+					log.Logger.API.Errorf("listenConsul: json.Unmarshal %s: %s", configtypes.ConsulPricingPath, err)
 					continue
 				}
 
@@ -88,9 +84,9 @@ func (a *api) listenConsul(ctx context.Context) {
 				WaitIndex: lastIndex,
 				WaitTime:  time.Minute,
 			}
-			pair, meta, err := a.consulKV.Get(consulMplxPricePath, queryOpts)
+			pair, meta, err := a.consulKV.Get(configtypes.ConsulMplxPricePath, queryOpts)
 			if err != nil {
-				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulMplxPricePath, err)
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", configtypes.ConsulMplxPricePath, err)
 				continue
 			}
 
@@ -121,9 +117,9 @@ func (a *api) listenConsul(ctx context.Context) {
 				WaitIndex: lastIndex,
 				WaitTime:  time.Minute,
 			}
-			pair, meta, err := a.consulKV.Get(consulPaymentsRecipientPath, queryOpts)
+			pair, meta, err := a.consulKV.Get(configtypes.ConsulPaymentsRecipientPath, queryOpts)
 			if err != nil {
-				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", consulPaymentsRecipientPath, err)
+				log.Logger.API.Errorf("listenConsul: consulKV.Get %s: %s", configtypes.ConsulPaymentsRecipientPath, err)
 				continue
 			}
 

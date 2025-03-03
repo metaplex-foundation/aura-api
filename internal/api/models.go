@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
 
@@ -101,14 +102,17 @@ type (
 		PriceMPLX         int64 `json:"price_mplx"`
 	}
 	Pricing struct {
-		AuraDAS            UIPricing `json:"aura_das"`
-		EclipseDAS         UIPricing `json:"eclipse_das"`
-		EclipseRPC         UIPricing `json:"eclipse_rpc"`
-		SolanaRPC          UIPricing `json:"solana_rpc"`
-		GetProgramAccounts UIPricing `json:"get_program_accounts"`
-		SolanaSWQOS        UIPricing `json:"solana_swqos"`
-		Websocket          UIPricing `json:"websocket"`
-		MonthlyPriceMPLX   *int64    `json:"monthly_price_mplx"`
+		SolanaDAS                 UIPricing `json:"solana_das"`
+		EclipseDAS                UIPricing `json:"eclipse_das"`
+		SolanaRPC                 UIPricing `json:"solana_rpc"`
+		EclipseRPC                UIPricing `json:"eclipse_rpc"`
+		SolanaGetProgramAccounts  UIPricing `json:"solana_get_program_accounts"`
+		EclipseGetProgramAccounts UIPricing `json:"eclipse_get_program_accounts"`
+		SolanaSWQOS               UIPricing `json:"solana_swqos"`
+		EclipseSWQOS              UIPricing `json:"eclipse_swqos"`
+		SolanaWebsocket           UIPricing `json:"solana_websocket"`
+		EclipseWebsocket          UIPricing `json:"eclipse_websocket"`
+		MonthlyPriceMPLX          *int64    `json:"monthly_price_mplx"`
 	}
 	SubscriptionWithPricing struct {
 		ID              int64   `json:"id"`
@@ -149,7 +153,7 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan, pricing PricingPlans, mplxPrice decimal.Decimal) (u User) {
+func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) (u User) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
@@ -224,7 +228,7 @@ func getTimeInterval(timeframe string) (time.Time, error) {
 	return time.Now().UTC().Add(-timeframeDuration), nil
 }
 
-func SubscriptionWithPricingFromDBModel(plan postgres.Plan, pricing PricingPlans, mplxPrice decimal.Decimal) SubscriptionWithPricing {
+func SubscriptionWithPricingFromDBModel(plan postgres.Plan, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) SubscriptionWithPricing {
 	subscriptionWithPricing := SubscriptionWithPricing{
 		ID:             plan.PlanID,
 		Name:           plan.Name,
@@ -251,7 +255,7 @@ func SubscriptionWithPricingFromDBModel(plan postgres.Plan, pricing PricingPlans
 	return subscriptionWithPricing
 }
 
-func getSubscriptionsWithPricingList(subscriptions []postgres.Plan, pricing PricingPlans, mplxPrice decimal.Decimal) []SubscriptionWithPricing {
+func getSubscriptionsWithPricingList(subscriptions []postgres.Plan, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) []SubscriptionWithPricing {
 	result := make([]SubscriptionWithPricing, 0, len(subscriptions))
 	for _, s := range subscriptions {
 		subscriptionWithPricing := SubscriptionWithPricingFromDBModel(s, pricing, mplxPrice)
@@ -266,20 +270,23 @@ func getSubscriptionsWithPricingList(subscriptions []postgres.Plan, pricing Pric
 	return result
 }
 
-func ConvertUIPricing(cfg PricingConfig, mplxPrice decimal.Decimal) Pricing {
+func ConvertUIPricing(cfg configtypes.PricingConfig, mplxPrice decimal.Decimal) Pricing {
 	return Pricing{
-		AuraDAS:            UiPricingModel(cfg.AuraDAS, mplxPrice),
-		EclipseDAS:         UiPricingModel(cfg.EclipseDAS, mplxPrice),
-		EclipseRPC:         UiPricingModel(cfg.EclipseRPC, mplxPrice),
-		SolanaRPC:          UiPricingModel(cfg.SolanaRPC, mplxPrice),
-		GetProgramAccounts: UiPricingModel(cfg.GetProgramAccounts, mplxPrice),
-		SolanaSWQOS:        UiPricingModel(cfg.SolanaSWQOS, mplxPrice),
-		Websocket:          UiPricingModel(cfg.Websocket, mplxPrice),
-		MonthlyPriceMPLX:   cfg.MonthlyPriceMPLX,
+		SolanaDAS:                 UiPricingModel(cfg.SolanaDAS, mplxPrice),
+		EclipseDAS:                UiPricingModel(cfg.EclipseDAS, mplxPrice),
+		SolanaRPC:                 UiPricingModel(cfg.SolanaRPC, mplxPrice),
+		EclipseRPC:                UiPricingModel(cfg.EclipseRPC, mplxPrice),
+		SolanaGetProgramAccounts:  UiPricingModel(cfg.SolanaGetProgramAccounts, mplxPrice),
+		EclipseGetProgramAccounts: UiPricingModel(cfg.EclipseGetProgramAccounts, mplxPrice),
+		SolanaSWQOS:               UiPricingModel(cfg.SolanaSWQOS, mplxPrice),
+		EclipseSWQOS:              UiPricingModel(cfg.EclipseSWQOS, mplxPrice),
+		SolanaWebsocket:           UiPricingModel(cfg.SolanaWebsocket, mplxPrice),
+		EclipseWebsocket:          UiPricingModel(cfg.EclipseWebsocket, mplxPrice),
+		MonthlyPriceMPLX:          cfg.MonthlyPriceMPLX,
 	}
 }
 
-func UiPricingModel(model PricingModel, mplxPrice decimal.Decimal) UIPricing {
+func UiPricingModel(model configtypes.PricingModel, mplxPrice decimal.Decimal) UIPricing {
 	return UIPricing{
 		RequestsPerSecond: model.RequestsPerSecond,
 		PriceMPLX:         model.PriceUSD.Div(mplxPrice).Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64(),

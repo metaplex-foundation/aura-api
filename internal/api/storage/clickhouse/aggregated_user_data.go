@@ -247,6 +247,7 @@ func (s *Storage) AggregateUserDataHourly(ctx context.Context, aggregateOnlyRece
 	    toDateTime(toStartOfHour(timestamp)),
 	    coalesce(nullIf(rpc_method, ''), 'All'),
 	    coalesce(nullIf(chain, ''), 'All'),
+		coalesce(nullIf(request_type, ''), 'All'),
 	    count(*) AS total_req,
 	    countIf(rpc_error_code = '0' AND status = 200) AS success_req,
 	    countIf(status != 200) AS http_err,
@@ -254,22 +255,16 @@ func (s *Storage) AggregateUserDataHourly(ctx context.Context, aggregateOnlyRece
 	    sum(response_size_bytes) AS response_size_bytes,
 	    avg(response_time_ms) AS avg_response_time_ms,
 	    quantileTiming(0.95)(response_time_ms) AS p95_response_time_ms,
-	    is_mainnet,
+	    is_mainnet
 	FROM aura.stats
 	WHERE timestamp < date_trunc('hour', now()) %s
 	GROUP BY GROUPING SETS (
-		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, is_mainnet),
-		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), chain, is_mainnet),
+		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, request_type, is_mainnet),
+		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), chain, request_type, is_mainnet),
 		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), is_mainnet),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, is_mainnet),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)), chain, is_mainnet),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)), is_mainnet),
-	    	(user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain),
-		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp)), chain),
-		    (user_uid, tkn_uuid, toDateTime(toStartOfHour(timestamp))),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)), chain),
-		    (user_uid, toDateTime(toStartOfHour(timestamp)))
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), rpc_method, chain, request_type, is_mainnet),
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), chain, request_type, is_mainnet),
+		    (user_uid, toDateTime(toStartOfHour(timestamp)), is_mainnet)
 	)
 	`, selectRecentDataCondition)
 
@@ -300,6 +295,7 @@ func (s *Storage) AggregateUserDataDaily(ctx context.Context, aggregateOnlyRecen
 	    toDate(timestamp) AS day,
 	    coalesce(nullIf(rpc_method, ''), 'All'),
 	    coalesce(nullIf(chain, ''), 'All'),
+		coalesce(nullIf(request_type, ''), 'All'),
 	    count(*) AS total_req,
 	    countIf(rpc_error_code = '0' AND status = 200) AS success_req,
 	    countIf(status != 200) AS http_err,
@@ -311,18 +307,12 @@ func (s *Storage) AggregateUserDataDaily(ctx context.Context, aggregateOnlyRecen
 	FROM aura.stats
 	WHERE toDate(timestamp) < toDate(now(), 'Etc/UTC') %s
 	GROUP BY GROUPING SETS (
-	    (user_uid, tkn_uuid, toDate(timestamp), rpc_method, chain, is_mainnet),
-	    (user_uid, tkn_uuid, toDate(timestamp), chain, is_mainnet),
-	    (user_uid, tkn_uuid, toDate(timestamp), is_mainnet),
-	    (user_uid, toDate(timestamp), rpc_method, chain, is_mainnet),
-	    (user_uid, toDate(timestamp), chain, is_mainnet),
-	    (user_uid, toDate(timestamp), is_mainnet),
-	    (user_uid, tkn_uuid, toDate(timestamp), rpc_method, chain),
-	    (user_uid, tkn_uuid, toDate(timestamp), chain),
-	    (user_uid, tkn_uuid, toDate(timestamp)),
-	    (user_uid, toDate(timestamp), rpc_method, chain),
-	    (user_uid, toDate(timestamp), chain),
-	    (user_uid, toDate(timestamp))
+	    (user_uid, tkn_uuid, toDate(timestamp), rpc_method, chain, request_type, is_mainnet),
+		(user_uid, tkn_uuid, toDate(timestamp), chain, request_type, is_mainnet),
+		(user_uid, tkn_uuid, toDate(timestamp), is_mainnet),
+		(user_uid, toDate(timestamp), rpc_method, chain, request_type, is_mainnet),
+		(user_uid, toDate(timestamp), chain, request_type, is_mainnet),
+		(user_uid, toDate(timestamp), is_mainnet)
 	)
     `, selectRecentDataCondition)
 	_, err := s.conn.ExecContext(ctx, query)
