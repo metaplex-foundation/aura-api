@@ -93,7 +93,7 @@ jobs:
         env:
           REGISTRY: ghcr.io/${{ github.repository_owner }}
           VERSION: ${{ env.VERSION }}
-        run: make image push
+        run: make image push VERSION="$VERSION"
 
       - name: Notify Build Complete
         if: success()
