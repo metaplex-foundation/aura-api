@@ -70,7 +70,10 @@ SELECT
         WHEN original_chain = 'eclipse-das' THEN 'DAS'
         ELSE 'RPC' -- Default value for any unexpected cases
     END AS request_type,
-    0
+    CASE 
+        WHEN method_cost > 0 THEN 2
+        ELSE 1
+    END AS subscription_id
 FROM (
     SELECT
         user_uid,
