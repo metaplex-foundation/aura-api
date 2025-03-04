@@ -207,7 +207,6 @@ func (c *Collector) aggregateDataForSubscriptionPlan(ctx context.Context) (err e
 
 		price, exists := chainRequestTypePrice[chain][requestType]
 		if !exists {
-			// TODO!: here error happened
 			return fmt.Errorf("missing price at Consul for chain: %s, request type: %s", chain, requestType)
 		}
 
