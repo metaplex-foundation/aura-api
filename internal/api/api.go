@@ -224,8 +224,9 @@ func initAPIServer() *echo.Echo {
 	echo2.SetupServer(s, false)
 
 	echo2.InitBaseMiddlewares(s, middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowOrigins:     []string{"https://aura-app.metaplex.com", "https://aura-app.dev.metaplex.com", "http://localhost:3000", "https://localhost:3000"},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
 	}))
 	s.Use(echo2.RequestTimeoutMiddleware(nil))
 
