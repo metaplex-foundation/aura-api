@@ -42,7 +42,7 @@ func (c *Collector) RunStatsCollector(ctx context.Context) {
 	_, err := cron.Every(1).Day().At(dailyCollectorStartTime).Do(func() {
 		timeNow := time.Now()
 
-		err := c.collectLatestStat(ctx)
+		err := c.CollectLatestStat(ctx)
 		if err != nil {
 			log.Logger.Collector.Errorf("collectLatestStat: %s", err)
 		}
@@ -56,7 +56,7 @@ func (c *Collector) RunStatsCollector(ctx context.Context) {
 	cron.StartAsync()
 }
 
-func (c *Collector) collectLatestStat(ctx context.Context) (err error) {
+func (c *Collector) CollectLatestStat(ctx context.Context) (err error) {
 	err = c.aggregateDataForPayAsYouGoPlan(ctx)
 	if err != nil {
 		return fmt.Errorf("aggregateDataForPayAsYouGoPlan: %s", err)

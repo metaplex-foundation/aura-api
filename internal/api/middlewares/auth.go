@@ -134,6 +134,11 @@ func (a *AuthMiddleware) getTokenInfo(authToken string) (userID string, expireTi
 }
 
 func (*AuthMiddleware) getAuthToken(c echo.Context) (res string, err error) {
+	authToken, err := c.Request().Cookie("DYNAMIC_JWT_TOKEN")
+	if err == nil {
+		return authToken.Value, nil
+	}
+
 	splittedToken := strings.SplitN(c.Request().Header.Get(echo.HeaderAuthorization), " ", 2)
 	if len(splittedToken) != 2 {
 		return res, ErrEmptyAuthHeaders

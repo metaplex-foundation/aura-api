@@ -82,7 +82,7 @@ func (s *Storage) GetProviderRequestStatsPayAsYouGoPlan(ctx context.Context, tar
 			chain,
 			request_type,
 			COUNT(*) AS request_count,
-			SUM(method_cost)/COUNT(*) as request_price,
+			toInt64(SUM(method_cost)/COUNT(*)) as request_price,
 			toDate(timestamp) AS day
 		FROM aura.stats
 			WHERE day = '%s'

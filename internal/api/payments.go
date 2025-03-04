@@ -112,7 +112,7 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 	}
 }
 
-func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) (err error) {
+func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 	for {
@@ -120,9 +120,9 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) (err error) 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err = p.pgStorage.CancelUnpaidPayments(ctx)
+			err := p.pgStorage.CancelUnpaidPayments(ctx)
 			if err != nil {
-				return fmt.Errorf("CancelUnpaidPayments: %s", err)
+				log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 			}
 		}
 	}
