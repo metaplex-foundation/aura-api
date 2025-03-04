@@ -15,7 +15,8 @@ update chain = case
     WHEN chain = 'getProgramAccounts' THEN 'solana'
     WHEN chain = 'eclipse-das' THEN 'eclipse'
     ELSE chain
-end;
+end
+where true;
 
 alter table aura.stats
 update method_cost = 13
