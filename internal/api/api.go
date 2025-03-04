@@ -202,10 +202,23 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 	a.initAPIHandlers(authMiddleware)
 	a.initAPIDocsHandlers()
 
+	// run a few initial aggregation and calculation jobs
 	err = chStorage.RunInitialAggregation(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("RunInitialAggregation: %s", err)
 	}
+	// stats will be collected for the previous days, data from the day when script is launched will not be selected
+	err = a.statsCollector.CollectLatestStat(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("initial provider stats collection is failed, CollectLatestStat: %s", err)
+	}
+	// rewards should be calculated only when provider stats is collected already
+	// it will calculate rewards for yesterday
+	err = a.rewardsCalculator.CalculateAndSaveRewards(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("initial provider rewards calculation is failed, CalculateAndSaveRewards: %s", err)
+	}
+
 	go chStorage.RunStatsAggregator(ctx)
 	go a.statsCollector.RunStatsCollector(ctx)
 	go a.rewardsCalculator.RunRewardsCalculation(ctx)
