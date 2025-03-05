@@ -51,7 +51,7 @@ func (s *Storage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptio
 func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, newSubscriptionID int64) (err error) {
 	var (
 		newSubscriptionPrice, newSubscriptionPriority, userBalance             int64
-		currSubscriptionEndsOn, usrLastUpdatedPlanAt                           *time.Time
+		currSubscriptionEndsOn                                                 *time.Time
 		oldSubscriptionPriority, newSubscriptionPeriodDays, currSubscriptionID *int64
 	)
 
@@ -81,23 +81,20 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		usr_mplx_balance, 
 		sbs_priority, 
 		usr_sbs_ends_on, 
-		usr_sbs_id, 
-		usr_last_updated_plan_at  
-	FROM users 
-	JOIN subscriptions USING(usr_next_sbs_id) WHERE usr_id = ?`
+		users.sbs_id
+	FROM users
+	JOIN subscriptions ON users.sbs_id = subscriptions.sbs_id 
+	WHERE usr_id = ?
+	FOR UPDATE SKIP LOCKED;`
 	if _, err = tx.db.QueryOneContext(
 		ctx,
-		pg.Scan(&oldSubscriptionPriority, &userBalance, &currSubscriptionEndsOn, &currSubscriptionID, &usrLastUpdatedPlanAt),
+		pg.Scan(&userBalance, &oldSubscriptionPriority, &currSubscriptionEndsOn, &currSubscriptionID),
 		selectInfoAboutUser, usrID); err != nil {
 		return fmt.Errorf("failed to retrieve info about an old subscription: %w", err)
 	}
 
-	if usrLastUpdatedPlanAt != nil && usrLastUpdatedPlanAt.AddDate(0, 0, 1).After(time.Now()) {
-		return fmt.Errorf("cannot update the subscription plan more than once a day")
-	}
-
 	if oldSubscriptionPriority != nil && newSubscriptionPriority <= *oldSubscriptionPriority {
-		return fmt.Errorf("cannot downgrade to a subscription with lower or the same priority")
+		return fmt.Errorf("cannot upgrade to a subscription with lower or the same priority")
 	}
 
 	if userBalance <= 0 || userBalance < newSubscriptionPrice {
@@ -118,7 +115,8 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 				ELSE NULL 
 			END,
 			usr_last_updated_plan_at = NOW(),
-			sbs_id = ?
+			sbs_id = ?,
+			usr_next_sbs_id = ?
 		WHERE usr_id = ?;
 	`
 	if _, err = tx.db.ExecContext(
@@ -127,9 +125,15 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		newSubscriptionPrice,
 		newSubscriptionPeriodDays,
 		newSubscriptionPeriodDays,
-		newSubscriptionID, usrID,
+		newSubscriptionID,
+		newSubscriptionID,
+		usrID,
 	); err != nil {
 		return fmt.Errorf("failed to update user details: %w", err)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -145,7 +149,7 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 	var currentSubscriptionId, currentSubscriptionPriority, nextSubscriptionPriority int64
 	var lastChangedAt time.Time
 	query := `
-		SELECT u.sbs_id, cs.sbs_priority, cs.last_changed_at, ns.sbs_priority
+		SELECT u.sbs_id, cs.sbs_priority, u.usr_last_updated_plan_at, ns.sbs_priority
 		FROM users u
 		JOIN subscriptions cs ON u.sbs_id = cs.sbs_id
 		JOIN subscriptions ns ON ns.sbs_id = ?
@@ -174,11 +178,17 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		return fmt.Errorf("downgrade not allowed: next subscription priority is not lower than current subscription")
 	}
 
+	if nextSubscriptionPriority == 0 && currentSubscriptionPriority == 1 {
+		currentSubscriptionId = nextSubscriptionId
+	}
+
 	updateQuery := `
 		UPDATE users 
-		SET usr_next_sbs_id = ?
+		SET 
+			usr_next_sbs_id = ?,
+			sbs_id = ?
 		WHERE usr_id = ?;`
-	if _, err = tx.db.ExecContext(ctx, updateQuery, nextSubscriptionId, userID); err != nil {
+	if _, err = tx.db.ExecContext(ctx, updateQuery, nextSubscriptionId, currentSubscriptionId, userID); err != nil {
 		return fmt.Errorf("failed to update rows: %w", err)
 	}
 
@@ -198,9 +208,9 @@ func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64)
 
 	updateQuery := `
 		UPDATE users 
-		SET usr_next_sbs_id = sbs_id,
+		SET usr_next_sbs_id = sbs_id
 		WHERE usr_id = ?;`
-	if _, err = tx.db.ExecContext(ctx, updateQuery); err != nil {
+	if _, err = tx.db.ExecContext(ctx, updateQuery, userID); err != nil {
 		return fmt.Errorf("failed to update rows: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {

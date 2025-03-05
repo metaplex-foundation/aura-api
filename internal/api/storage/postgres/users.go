@@ -22,8 +22,8 @@ type (
 	}
 	UserWithCurrentPlan struct {
 		User
-		Plan
-		NextPlan Plan `pg:"next_sbs_" json:"next_plan"`
+		CurrentPlan Plan `pg:"curr" json:"current_plan"`
+		NextPlan    Plan `pg:"next" json:"next_plan"`
 	}
 	UserWithAPIKeys struct {
 		DynamicID          string     `pg:"usr_dynamic_id"`
@@ -93,33 +93,55 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurr
 		return u, ErrEmptyDynamicID
 	}
 
-	query := `SELECT usr_id, 
+	query := `SELECT usr_id,
+					 usr_mplx_balance,
 					 usr_dynamic_id, 
-					 usr_created_at, 
-					 usr_mplx_balance, 
+					 usr_created_at,  
 					 usr_last_updated_plan_at,
-					 usr_next_sbs_id, 
-					 usr_sbs_ends_on, 
+					 usr_sbs_ends_on,
 
-					 sbs_id, 
-					 sbs_priority, 
-					 sbs_name, 
-					 sbs_tokens_limit, 
-					 sbs_created_at,
+					 curr_sbs.sbs_id as curr_sbs_id, 
+					 curr_sbs.sbs_name as curr_sbs_name, 
+					 curr_sbs.sbs_tokens_limit as curr_sbs_tokens_limit, 
+					 curr_sbs.sbs_priority as curr_sbs_priority,
+					 curr_sbs.sbs_created_at as curr_sbs_created_at,
 
-					 next_sbs.sbs_id as next_sbs_id,
+					 next_sbs.sbs_id as next_sbs_id, 
+					 next_sbs.sbs_name as next_sbs_name, 
+					 next_sbs.sbs_tokens_limit as next_sbs_tokens_limit, 
 					 next_sbs.sbs_priority as next_sbs_priority,
-					 next_sbs.sbs_name as next_sbs_name,
-					 next_sbs.sbs_tokens_limit as next_sbs_tokens_limit,
 					 next_sbs.sbs_created_at as next_sbs_created_at
 				FROM users 
-    			LEFT JOIN subscriptions USING(sbs_id)
-				LEFT JOIN subscriptions AS next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
+				LEFT JOIN subscriptions as curr_sbs ON users.sbs_id = curr_sbs.sbs_id
+				LEFT JOIN subscriptions as next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
 				WHERE usr_dynamic_id = ?`
-	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
+
+	var currPlan, nextPlan Plan
+	_, err = s.db.QueryOneContext(ctx, pg.Scan(
+		&u.ID,
+		&u.MplxBalance,
+		&u.DynamicID,
+		&u.CreatedAt,
+		&u.LastUpdatedPlanAt,
+		&u.SubscriptionEndsOn,
+		&currPlan.PlanID,
+		&currPlan.Name,
+		&currPlan.TokenLimit,
+		&currPlan.Priority,
+		&currPlan.CreatedAt,
+		&nextPlan.PlanID,
+		&nextPlan.Name,
+		&nextPlan.TokenLimit,
+		&nextPlan.Priority,
+		&nextPlan.CreatedAt,
+	), query, dynamicID)
+
 	if err != nil {
 		return u, err
 	}
+
+	u.CurrentPlan = currPlan
+	u.NextPlan = nextPlan
 
 	return u, nil
 }

@@ -160,8 +160,8 @@ func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan,
 	u.CreatedAt = user.User.CreatedAt
 	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
 	u.SubscriptionEndsOn = user.User.SubscriptionEndsOn
-	u.Subscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
-	u.NextSubscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
+	u.Subscription = SubscriptionWithPricingFromDBModel(user.CurrentPlan, pricing, mplxPrice)
+	u.NextSubscription = SubscriptionWithPricingFromDBModel(user.NextPlan, pricing, mplxPrice)
 	return u
 }
 
