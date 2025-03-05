@@ -226,7 +226,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		go a.statsCollector.RunStatsCollector(ctx)
 		go a.rewardsCalculator.RunRewardsCalculation(ctx)
 
-		go paymentWatcher.watchPayments(mainCtx)
+		// go paymentWatcher.watchPayments(mainCtx)
 		go paymentWatcher.cancelUnpaidPayments(mainCtx)
 		go paymentWatcher.resetExpiredPaymentPlans(mainCtx)
 	}

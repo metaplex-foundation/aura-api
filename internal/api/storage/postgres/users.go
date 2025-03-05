@@ -114,7 +114,7 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurr
 					 next_sbs.sbs_created_at as next_sbs_created_at
 				FROM users 
     			LEFT JOIN subscriptions USING(sbs_id)
-				LEFT JOIN subscritpions AS next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
+				LEFT JOIN subscriptions AS next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
 				WHERE usr_dynamic_id = ?`
 	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
 	if err != nil {

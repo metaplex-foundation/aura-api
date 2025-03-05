@@ -570,9 +570,9 @@ func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 //	@Description	Undo downgrading of a subscription plan
 //	@Tags			users
 //	@Produce		json
-//	@Success		200				{string}	string		"Subscription cancellation has been undone successfully. Return empty string"
-//	@Failure		401				{object}	error
-//	@Failure		500				{object}	error
+//	@Success		200	{string}	string	"Subscription cancellation has been undone successfully. Return empty string"
+//	@Failure		401	{object}	error
+//	@Failure		500	{object}	error
 //	@Security		ApiKeyAuth
 //	@Router			/plan/undo_downgrading [patch]
 func (a *api) undoSubscriptionPlanDowngrading(c echo.Context) (err error) {
