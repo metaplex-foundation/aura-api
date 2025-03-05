@@ -504,7 +504,7 @@ func (a *api) updateSubscriptionPlan(c echo.Context) (err error) {
 	}
 	err = a.pgStorage.UpdateUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID)
 	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
+		return echo.NewHTTPError(http.StatusBadRequest, *updateSubscriptionErrorMessage)
 	}
 	if postgres.IsErrInvalidSubscriptionID(err) {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
