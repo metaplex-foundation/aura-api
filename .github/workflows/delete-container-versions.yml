@@ -30,7 +30,7 @@ jobs:
       - name: Keep last release versions
         uses: smartsquaregmbh/delete-old-packages@v0.8.1
         with:
-          user: ${{ github.repository_owner }}
+          organization: ${{ github.repository_owner }}
           type: container
           names: ${{ inputs.package_name }}
           version-pattern: '^v\d+\.\d+\.\d+$'
@@ -39,7 +39,7 @@ jobs:
       - name: Keep last develop versions
         uses: smartsquaregmbh/delete-old-packages@v0.8.1
         with:
-          user: ${{ github.repository_owner }}
+          organization: ${{ github.repository_owner }}
           type: container
           names: ${{ inputs.package_name }}
           version-pattern: '^develop-.*'
@@ -48,7 +48,7 @@ jobs:
       - name: Keep last other tagged versions
         uses: smartsquaregmbh/delete-old-packages@v0.8.1
         with:
-          user: ${{ github.repository_owner }}
+          organization: ${{ github.repository_owner }}
           type: container
           names: ${{ inputs.package_name }}
           version-pattern: '^(?!v\d+\.\d+\.\d+$)(?!latest)(?!develop-).*'
