@@ -36,25 +36,25 @@ var ErrBadStatusCode = errors.New("bad status code")
 
 var ErrTokenInvalid = echo.NewHTTPError(http.StatusUnauthorized, "invalid api token")
 
-func ToHttpError(err error) *echo.HTTPError {
+func ToHTTPError(err error) *echo.HTTPError {
 	if err == nil {
 		return nil
 	}
 
-	switch {
-	case errors.Is(err, &SubscriptionUpdatedTooOftenError{}):
+	switch err.(type) {
+	case *SubscriptionUpdatedTooOftenError:
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	case errors.Is(err, &PgTransactionError{}):
+	case *PgTransactionError:
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	case errors.Is(err, &PgSelectError{}):
+	case *PgSelectError:
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
-	case errors.Is(err, &PgInsertError{}):
+	case *PgInsertError:
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	case errors.Is(err, &PgUpdateError{}):
+	case *PgUpdateError:
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	case errors.Is(err, &UpgradeSuscriptionError{}):
+	case *UpgradeSubscriptionError:
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	case errors.Is(err, &DowngradeSubscriptionError{}):
+	case *DowngradeSubscriptionError:
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, "unexpected error")
@@ -91,9 +91,9 @@ func (pue *PgUpdateError) Error() string {
 	return pue.Msg
 }
 
-type UpgradeSuscriptionError struct{ Msg string }
+type UpgradeSubscriptionError struct{ Msg string }
 
-func (use *UpgradeSuscriptionError) Error() string {
+func (use *UpgradeSubscriptionError) Error() string {
 	return use.Msg
 }
 

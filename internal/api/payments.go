@@ -153,7 +153,8 @@ func (p *paymentsWatcher) resetExpiredPaymentPlans(ctx context.Context) (err err
 		case <-ticker.C:
 			err = p.pgStorage.ResetExpiredPaymentPlans(ctx)
 			if err != nil {
-				return fmt.Errorf("CancelUnpaidPayments: %w", err)
+				log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
+				return
 			}
 		case <-ctx.Done():
 			log.Logger.API.Infof("Shutdown received. Exiting autoResetExpiredPaymentPlans")

@@ -58,7 +58,7 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to start transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to start transaction: %v", err)}
 	}
 	defer tx.Rollback()
 
@@ -74,7 +74,7 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		selectNewSubscription,
 		newSubscriptionID,
 	); err != nil {
-		return &customErrors.PgSelectError{Msg: fmt.Sprintf("failed to select new subscription: %v", err)}
+		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to select new subscription: %v", err)}
 	}
 
 	selectInfoAboutUser := `
@@ -92,15 +92,15 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		pg.Scan(&userBalance, &oldSubscriptionPriority, &currSubscriptionEndsOn, &currSubscriptionID),
 		selectInfoAboutUser, usrID); err != nil {
 
-		return &customErrors.PgSelectError{Msg: fmt.Sprintf("failed to retrieve info about an old subscription: %s", err)}
+		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to retrieve info about an old subscription: %s", err)}
 	}
 
 	if oldSubscriptionPriority != nil && newSubscriptionPriority <= *oldSubscriptionPriority {
-		return &customErrors.UpgradeSuscriptionError{Msg: "cannot upgrade to a subscription with lower or the same priority"}
+		return &customErrors.UpgradeSubscriptionError{Msg: "Cannot upgrade to a subscription with lower or the same priority"}
 	}
 
 	if userBalance <= 0 || userBalance < newSubscriptionPrice {
-		return &customErrors.UpgradeSuscriptionError{Msg: "insufficient balance to change subscription"}
+		return &customErrors.UpgradeSubscriptionError{Msg: "Insufficient balance to change subscription"}
 	}
 
 	if newSubscriptionPeriodDays == nil {
@@ -131,11 +131,11 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		newSubscriptionID,
 		usrID,
 	); err != nil {
-		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("failed to update user's subscription: %v", err)}
+		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update user's subscription: %v", err)}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to commit transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
 	}
 
 	return nil
@@ -144,7 +144,7 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, nextSubscriptionId int64) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to start transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to start transaction: %v", err)}
 	}
 	defer tx.Rollback()
 
@@ -169,15 +169,15 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		nextSubscriptionId,
 		userID,
 	); err != nil {
-		return &customErrors.PgSelectError{Msg: fmt.Sprintf("failed to select subscription priorities: %v", err)}
+		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to select subscription priorities: %v", err)}
 	}
 
 	if time.Since(lastChangedAt) < 24*time.Hour {
-		return &customErrors.DowngradeSubscriptionError{Msg: "downgrade not allowed: last subscription change was less than 24 hours ago"}
+		return &customErrors.DowngradeSubscriptionError{Msg: "Downgrade not allowed: subscription was purchased today, try again tomorrow"}
 	}
 
 	if nextSubscriptionPriority >= currentSubscriptionPriority && !(nextSubscriptionPriority == 0 && currentSubscriptionPriority == 1) {
-		return &customErrors.DowngradeSubscriptionError{Msg: "downgrade not allowed: next subscription priority is not lower than current subscription"}
+		return &customErrors.DowngradeSubscriptionError{Msg: "Downgrade not allowed: next subscription priority is not lower than current subscription"}
 	}
 
 	if nextSubscriptionPriority == 0 && currentSubscriptionPriority == 1 {
@@ -191,11 +191,11 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 			sbs_id = ?
 		WHERE usr_id = ?;`
 	if _, err = tx.db.ExecContext(ctx, updateQuery, nextSubscriptionId, currentSubscriptionId, userID); err != nil {
-		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("failed to update rows: %v", err)}
+		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update rows: %v", err)}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to commit transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
 	}
 
 	return nil
@@ -204,7 +204,7 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to start transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to start transaction: %v", err)}
 	}
 	defer tx.Rollback()
 
@@ -213,10 +213,10 @@ func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64)
 		SET usr_next_sbs_id = sbs_id
 		WHERE usr_id = ?;`
 	if _, err = tx.db.ExecContext(ctx, updateQuery, userID); err != nil {
-		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("failed to update rows: %v", err)}
+		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update rows: %v", err)}
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to commit transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
 	}
 
 	return nil
@@ -225,7 +225,7 @@ func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64)
 func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to start transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to start transaction: %v", err)}
 	}
 	defer tx.Rollback()
 
@@ -237,7 +237,7 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 	`
 
 	if _, err = tx.db.QueryContext(ctx, &usersIDs, selectQuery); err != nil {
-		return &customErrors.PgSelectError{Msg: fmt.Sprintf("failed to select rows: %v", err)}
+		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to select rows: %v", err)}
 	}
 
 	if len(usersIDs) == 0 {
@@ -249,12 +249,18 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 		SET sbs_id = CASE 
 			WHEN usr_mplx_balance >= (SELECT sbs_price_mplx FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
 			THEN usr_next_sbs_id 
-			ELSE 1 
-		END, 
+			ELSE 1
+		END,
+		usr_next_sbs_id = CASE 
+			WHEN usr_mplx_balance >= (SELECT sbs_price_mplx FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
+			THEN usr_next_sbs_id 
+			ELSE 1
+		END,
 		usr_sbs_ends_on = CASE 
 			WHEN usr_mplx_balance >= (SELECT sbs_price_mplx FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
+				AND usr_next_sbs_id != 1 AND usr_next_sbs_id != 2
 			THEN NOW() + INTERVAL '1 day' * (SELECT sbs_period_days FROM subscriptions WHERE sbs_id = usr_next_sbs_id)
-			ELSE NULL 
+			ELSE NULL
 		END,
 		usr_mplx_balance = CASE 
 			WHEN usr_mplx_balance >= (SELECT sbs_price_mplx FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
@@ -263,10 +269,10 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 		END
 		WHERE usr_id IN (?);`
 	if _, err = tx.db.ExecContext(ctx, updateQuery, pg.In(usersIDs)); err != nil {
-		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("failed to update rows: %v", err)}
+		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update rows: %v", err)}
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("failed to commit transaction: %v", err)}
+		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
 	}
 
 	return nil

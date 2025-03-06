@@ -505,7 +505,7 @@ func (a *api) upgradeSubscriptionPlan(c echo.Context) (err error) {
 
 	if err = a.pgStorage.UpgradeUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID); err != nil {
 		log.Logger.API.Errorf("upgradeSubscriptionPlan: UpgradeUserSubscriptionPlan: %s", err)
-		return util.ToHttpError(err)
+		return util.ToHTTPError(err)
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -546,7 +546,7 @@ func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 
 	if err = a.pgStorage.DowngradeCurrentSubscription(c.Request().Context(), u.ID, params.SubscriptionID); err != nil {
 		log.Logger.API.Errorf("cancelSubscriptionPlan: CancelCurrentSubscription: %s", err)
-		return util.ToHttpError(err)
+		return util.ToHTTPError(err)
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -579,7 +579,7 @@ func (a *api) undoSubscriptionPlanDowngrading(c echo.Context) (err error) {
 	}
 	if err = a.pgStorage.UndoSubscriptionDowngrading(c.Request().Context(), u.ID); err != nil {
 		log.Logger.API.Errorf("undoSubscriptionPlanDowngrading: %s", err)
-		return util.ToHttpError(err)
+		return util.ToHTTPError(err)
 	}
 
 	return c.NoContent(http.StatusOK)
