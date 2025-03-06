@@ -502,16 +502,10 @@ func (a *api) upgradeSubscriptionPlan(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	err = a.pgStorage.UpgradeUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID)
-	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, *updateSubscriptionErrorMessage)
-	}
-	if postgres.IsErrInvalidSubscriptionID(err) {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
-	}
-	if err != nil {
+
+	if err = a.pgStorage.UpgradeUserSubscriptionPlan(c.Request().Context(), u.ID, params.SubscriptionID); err != nil {
 		log.Logger.API.Errorf("upgradeSubscriptionPlan: UpgradeUserSubscriptionPlan: %s", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return util.ToHttpError(err)
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -549,16 +543,10 @@ func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	err = a.pgStorage.DowngradeCurrentSubscription(c.Request().Context(), u.ID, params.SubscriptionID)
-	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
-	}
-	if postgres.IsErrInvalidSubscriptionID(err) {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid subscription ID: %d", params.SubscriptionID))
-	}
-	if err != nil {
+
+	if err = a.pgStorage.DowngradeCurrentSubscription(c.Request().Context(), u.ID, params.SubscriptionID); err != nil {
 		log.Logger.API.Errorf("cancelSubscriptionPlan: CancelCurrentSubscription: %s", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return util.ToHttpError(err)
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -589,13 +577,9 @@ func (a *api) undoSubscriptionPlanDowngrading(c echo.Context) (err error) {
 		log.Logger.API.Errorf("updateSubscriptionPlan: GetOrCreateUser: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
-	err = a.pgStorage.UndoSubscriptionDowngrading(c.Request().Context(), u.ID)
-	if updateSubscriptionErrorMessage := postgres.UpdateSubscriptionErrorMessage(err); updateSubscriptionErrorMessage != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, updateSubscriptionErrorMessage)
-	}
-	if err != nil {
+	if err = a.pgStorage.UndoSubscriptionDowngrading(c.Request().Context(), u.ID); err != nil {
 		log.Logger.API.Errorf("undoSubscriptionPlanDowngrading: %s", err)
-		return echo.NewHTTPError(http.StatusInternalServerError)
+		return util.ToHttpError(err)
 	}
 
 	return c.NoContent(http.StatusOK)

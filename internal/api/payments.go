@@ -130,7 +130,7 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 
 func (p *paymentsWatcher) resetExpiredPaymentPlans(ctx context.Context) (err error) {
 	now := time.Now()
-	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.UTC().Location())
 	durationUntilMidnight := time.Until(nextMidnight)
 
 	select {
