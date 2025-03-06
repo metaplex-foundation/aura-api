@@ -65,6 +65,7 @@ type api struct { //nolint:govet // aligned to 176 bytes
 
 	statsCollector    stats.Collector
 	rewardsCalculator rewards.RewardsCalculator
+	usersSnapshot     stats.UsersSnapshot
 }
 
 const (
@@ -141,6 +142,8 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 	statsCollector := stats.New(pgStorage, chStorage, *consulClient)
 
+	usersSnapshot := stats.NewUsersSnapshotJob(pgStorage, chStorage)
+
 	rewardsCalculator := rewards.New(&pgStorage, &chStorage)
 
 	// TODO: add consul watching
@@ -175,6 +178,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 		statsCollector:    statsCollector,
 		rewardsCalculator: rewardsCalculator,
+		usersSnapshot:     usersSnapshot,
 	}
 	if cfg.API.CertFile != "" {
 		a.certData, err = os.ReadFile(cfg.API.CertFile)
@@ -225,6 +229,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		go chStorage.RunStatsAggregator(ctx)
 		go a.statsCollector.RunStatsCollector(ctx)
 		go a.rewardsCalculator.RunRewardsCalculation(ctx)
+		go a.usersSnapshot.RunUsersSnapshotJob(ctx)
 
 		go paymentWatcher.watchPayments(mainCtx)
 		go paymentWatcher.cancelUnpaidPayments(mainCtx)
