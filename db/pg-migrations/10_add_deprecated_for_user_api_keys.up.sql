@@ -1,0 +1,1 @@
+ALTER TABLE user_api_keys ADD COLUMN deprecated boolean default false not null;

@@ -62,6 +62,17 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 	}
 	defer tx.Rollback()
 
+	keysDiff, err := tx.GetSubscriptionKeysDiff(ctx, usrID, newSubscriptionID)
+	if err != nil {
+		return err
+	}
+
+	if keysDiff > 0 {
+		tx.RestoreAPIKeys(ctx, usrID, keysDiff)
+	} else {
+		tx.DeprecateAPIKeys(ctx, usrID, keysDiff)
+	}
+
 	selectNewSubscription := `
 	SELECT 
 		sbs_price_mplx, 
@@ -229,7 +240,7 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 	}
 	defer tx.Rollback()
 
-	var usersIDs []int
+	var usersIDs []int64
 	selectQuery := `
 		SELECT usr_id FROM users 
 		WHERE sbs_id != 1 AND NOW() > usr_sbs_ends_on
@@ -242,6 +253,23 @@ func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
 
 	if len(usersIDs) == 0 {
 		return nil
+	}
+
+	updateKeysQuery := `
+		UPDATE user_api_keys
+		SET deprecated = CASE 
+			WHEN keys_diff > 0 THEN false
+			ELSE true
+		END
+		FROM (
+			SELECT usr_id, (SELECT COUNT(*) FROM user_api_keys WHERE usr_id = u.usr_id AND deprecated = false) - (SELECT COUNT(*) FROM user_api_keys WHERE usr_id = u.usr_id AND deprecated = true) AS keys_diff
+			FROM users u
+			WHERE u.usr_id IN (?)
+		) subquery
+		WHERE user_api_keys.usr_id = subquery.usr_id;`
+
+	if _, err = tx.db.ExecContext(ctx, updateKeysQuery, pg.In(usersIDs)); err != nil {
+		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update API keys: %v", err)}
 	}
 
 	updateQuery := `

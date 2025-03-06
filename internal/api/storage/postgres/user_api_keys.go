@@ -7,6 +7,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	customErrors "github.com/adm-metaex/aura-api/pkg/util"
+	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
 )
 
@@ -77,8 +79,10 @@ func (s *Storage) GetAPIKeysByUser(ctx context.Context, userID int64, showDelete
 		LeftJoin("user_api_keys_networks USING(uak_id)").
 		LeftJoin("networks USING(ntw_id)").
 		Where("usr_id = ?", userID).
+		Where("deprecated = false").
 		GroupBy("uak_id").
 		OrderBy("uak_created_at DESC")
+
 	if showDeleted != nil && *showDeleted {
 		q = q.Where("uak_deleted_at IS NOT NULL")
 	} else if showDeleted == nil {
@@ -104,7 +108,7 @@ func (s *Storage) GetAPIKeyByTokenAndUserDynamicID(ctx context.Context, apiKeyTo
 		FROM user_api_keys
 		LEFT JOIN user_api_keys_networks USING(uak_id)
 		LEFT JOIN networks USING(ntw_id)
-		WHERE uak_token = ?
+		WHERE uak_token = ? AND deprecated=false
 		GROUP BY uak_id
 	`
 	_, err = s.db.QueryOneContext(ctx, &apiKey, query, apiKeyToken)
@@ -205,4 +209,67 @@ func (s *Storage) updateAPIKeyNetworks(ctx context.Context, apiKeyID int64, netw
 	}
 
 	return s.insertAPIKeyNetworks(ctx, apiKeyID, networks)
+}
+
+func (s *Storage) DeprecateAPIKeys(ctx context.Context, userID, keysDiff int64) error {
+	if userID == 0 {
+		return ErrEmptyUserID
+	}
+
+	q := sq.Update(apiKeysTable).
+		Set("deprecated", true).
+		Where("usr_id = ?", userID).
+		OrderBy("uak_last_used_at ASC").
+		Limit(uint64(keysDiff))
+	query, args, err := q.ToSql()
+	if err != nil {
+		return &customErrors.PgUpdateError{Msg: err.Error()}
+	}
+
+	if _, err = s.db.ExecContext(ctx, query, args...); err != nil {
+		return &customErrors.PgUpdateError{Msg: err.Error()}
+	}
+	return err
+}
+
+func (s *Storage) RestoreAPIKeys(ctx context.Context, userID, keysDiff int64) error {
+	if userID == 0 {
+		return ErrEmptyUserID
+	}
+
+	q := sq.Update(apiKeysTable).
+		Set("deprecated", false).
+		Where("usr_id = ?", userID).
+		Where("deprecated = true").
+		OrderBy("uak_last_used_at DESC").
+		Limit(uint64(keysDiff))
+	query, args, err := q.ToSql()
+	if err != nil {
+		return &customErrors.PgUpdateError{Msg: err.Error()}
+	}
+
+	_, err = s.db.ExecContext(ctx, query, args...)
+	return err
+}
+
+func (s *Storage) GetSubscriptionKeysDiff(ctx context.Context, userID, nextSubscription int64) (int64, error) {
+	if userID == 0 {
+		return 0, ErrEmptyUserID
+	}
+
+	query := `
+		SELECT COALESCE(next_sub.sbs_tokens_limit - curr_sub.sbs_tokens_limit, 0) AS keys_diff
+		FROM users
+		LEFT JOIN subscriptions AS curr_sub ON users.current_subscription_id = curr_sub.id
+		LEFT JOIN subscriptions AS next_sub ON users.next_subscription_id = ?
+		WHERE users.id = ?
+	`
+	var keysDiff int64
+	_, err := s.db.QueryContext(ctx, pg.Scan(&keysDiff), query, nextSubscription, userID)
+	if err != nil {
+		return 0, &customErrors.PgUpdateError{Msg: err.Error()}
+	}
+	// positive values mean that we need to add keys
+	// negative values mean that we need to remove keys
+	return keysDiff, nil
 }
