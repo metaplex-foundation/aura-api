@@ -24,11 +24,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/adm-metaex/aura-api/internal/api/config"
 	"github.com/adm-metaex/aura-api/internal/api/docs"
 	"github.com/adm-metaex/aura-api/internal/api/middlewares"
-	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/config"
+	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
+	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/dynamic"
 	"github.com/adm-metaex/aura-api/pkg/email"

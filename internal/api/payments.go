@@ -15,7 +15,7 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/shopspring/decimal"
 
-	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
 )
 
