@@ -36,8 +36,8 @@ type (
 	}
 
 	DailyVolume struct {
-		Volume int64     `pg:"volume"`
-		Day    time.Time `pg:"day"`
+		Volume int64     `pg:"volume" json:"volume"`
+		Day    time.Time `pg:"day" json:"day"`
 	}
 )
 
@@ -214,7 +214,7 @@ func (s *Storage) GetDailyMPLXVolume(ctx context.Context, startDay time.Time, en
 
 	query := `SELECT SUM(crp_mplx_amount) as volume, crp_paid_at::date as day FROM crypto_payments WHERE crp_status = 'paid' AND crp_paid_at::date BETWEEN ? AND ? GROUP BY crp_paid_at::date
 ORDER BY day;`
-	_, err = s.db.QueryContext(ctx, &result, query, startDay.Truncate(24*time.Hour), endDay.Truncate(24*time.Hour))
+	_, err = s.db.QueryContext(ctx, &result, query, startDay.Format("2006-01-02"), endDay.Format("2006-01-02"))
 	if err != nil {
 		return result, err
 	}

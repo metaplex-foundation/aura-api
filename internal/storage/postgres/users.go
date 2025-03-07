@@ -38,12 +38,12 @@ type (
 	}
 
 	UsersSnapshot struct {
-		Day                   time.Time `pg:"urs_day"`
-		ProSubscriptions      int64     `pg:"urs_pro_subscriptions"`
-		AdvancedSubscriptions int64     `pg:"urs_advanced_subscriptions"`
-		PayAsYouGo            int64     `pg:"urs_pay_as_you_go"`
-		ActiveUsers           int64     `pg:"urs_active_users"`
-		TotalUsers            int64     `pg:"urs_total_users"`
+		Day                   time.Time `pg:"urs_day" json:"day"`
+		ProSubscriptions      int64     `pg:"urs_pro_subscriptions" json:"pro_subscriptions"`
+		AdvancedSubscriptions int64     `pg:"urs_advanced_subscriptions" json:"advanced_subscriptions"`
+		PayAsYouGo            int64     `pg:"urs_pay_as_you_go" json:"pay_as_you_go"`
+		ActiveUsers           int64     `pg:"urs_active_users" json:"active_users"`
+		TotalUsers            int64     `pg:"urs_total_users" json:"total_users"`
 	}
 
 	Count struct {

@@ -65,7 +65,8 @@ func (s *Storage) GetDailyRequestsByChainAndType(ctx context.Context, startDate 
 		GROUP BY
 			chain,
 			request_type,
-			day;
+			day
+		ORDER BY day;
 	`, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
 
 	rows, err := s.conn.Query(query)

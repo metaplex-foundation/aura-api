@@ -12,9 +12,14 @@ type (
 	}
 
 	DailyRewardsPaid struct {
-		Provider string    `pg:"provider"`
-		Volume   int64     `pg:"volume"`
-		Day      time.Time `pg:"day"`
+		Provider string    `pg:"provider" json:"provider"`
+		Paid     int64     `pg:"paid" json:"paid"`
+		Day      time.Time `pg:"day" json:"day"`
+	}
+
+	DailyEarnedRewards struct {
+		Earned int64     `pg:"earned" json:"earned"`
+		Day    time.Time `pg:"day" json:"day"`
 	}
 )
 
@@ -64,20 +69,20 @@ func (s *Storage) GetTotalMPLXDistributed(ctx context.Context) (volume int64, er
 	var result Volume
 	_, err = s.db.QueryOneContext(ctx, &result, query)
 	if err != nil {
-		return result.Volume, err
+		return volume, err
 	}
 
 	return result.Volume, nil
 }
 
-func (s *Storage) GetDailyMPLXDistributed(ctx context.Context, startDay time.Time, endDay time.Time) (result []DailyRewardsPaid, err error) {
+func (s *Storage) GetDailyMPLXDistributed(ctx context.Context, startDay, endDay time.Time) (result []DailyRewardsPaid, err error) {
 	if startDay.After(endDay) {
 		return result, fmt.Errorf("failed to get daily MPLX rewards distribution because start day cannot be gibber than end data: %w and %w", startDay, endDay)
 	}
 
 	query := `SELECT 
 			rt.rwd_provider as provider,
-			SUM(pr.prw_rewards) AS volume,
+			SUM(pr.prw_rewards) AS paid,
 			rt.rwd_paid_at as day
 		FROM 
 			rewards_transactions rt
@@ -91,6 +96,33 @@ func (s *Storage) GetDailyMPLXDistributed(ctx context.Context, startDay time.Tim
 			rt.rwd_provider
 		ORDER BY 
 			rt.rwd_paid_at;`
+
+	_, err = s.db.QueryContext(ctx, &result, query, startDay.Truncate(24*time.Hour), endDay.Truncate(24*time.Hour))
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (s *Storage) GetTotalRewardsEarned(ctx context.Context) (total int64, err error) {
+	query := `SELECT SUM(prw_rewards) AS volume FROM providers_rewards;`
+
+	var result Volume
+	_, err = s.db.QueryOneContext(ctx, &result, query)
+	if err != nil {
+		return total, err
+	}
+
+	return result.Volume, nil
+}
+
+func (s *Storage) GetDailyEarnedRewards(ctx context.Context, startDay, endDay time.Time) (result []DailyEarnedRewards, err error) {
+	if startDay.After(endDay) {
+		return result, fmt.Errorf("failed to get daily MPLX earned rewards because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+	}
+
+	query := `SELECT SUM(prw_rewards) AS earned, prw_day as day FROM providers_rewards WHERE prw_day BETWEEN ? AND ? GROUP BY prw_day ORDER BY prw_day;`
 
 	_, err = s.db.QueryContext(ctx, &result, query, startDay.Truncate(24*time.Hour), endDay.Truncate(24*time.Hour))
 	if err != nil {
