@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/adm-metaex/aura-api/internal/api"
-	"github.com/adm-metaex/aura-api/internal/api/config"
+	"github.com/adm-metaex/aura-api/internal/config"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
