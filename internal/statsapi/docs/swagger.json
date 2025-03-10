@@ -1,0 +1,531 @@
+{
+    "consumes": [
+        "application/json"
+    ],
+    "schemes": [
+        "http",
+        "https"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Swagger API server for Aura Stats API.",
+        "title": "Swagger Aura",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "0.0.3"
+    },
+    "basePath": "/",
+    "paths": {
+        "/metrics/requests/daily": {
+            "post": {
+                "description": "Returns number of requests processed daily, data grouped by request type",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Get number of requests processed daily",
+                "parameters": [
+                    {
+                        "description": "Start and end dates",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.DailyRequestsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/metrics/users/daily": {
+            "post": {
+                "description": "Returns number of gateway users",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "metrics"
+                ],
+                "summary": "Get number of gateway users",
+                "parameters": [
+                    {
+                        "description": "Start and end dates",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.DailyUsersSnapshotResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/distributed/daily": {
+            "post": {
+                "description": "Returns MPLX paid to the DAS providers in a requested timeframe",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get MPLX paid to the providers in a timeframe",
+                "parameters": [
+                    {
+                        "description": "Start and end dates",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.DistributedMPLXDailyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/distributed/total": {
+            "get": {
+                "description": "Returns total amount of MPLX paid to DAS providers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get total MPLX paid to the providers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.TotalDistributedMPLXResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/earned/daily": {
+            "post": {
+                "description": "Returns MPLX earned by DAS providers in a requested timeframe",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get MPLX earned by providers in a timeframe",
+                "parameters": [
+                    {
+                        "description": "Start and end dates",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.DailyRewardsEarnedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/earned/total": {
+            "get": {
+                "description": "Returns total amount of MPLX earned by DAS providers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get total MPLX earned by providers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.TotalRewardsEarnedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/paid/daily": {
+            "post": {
+                "description": "Returns MPLX paid by users to the gateway in a requested timeframe",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get MPLX revenue in a timeframe",
+                "parameters": [
+                    {
+                        "description": "Start and end dates",
+                        "name": "request_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.PaidMPLXDailyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/network/revenue/paid/total": {
+            "get": {
+                "description": "Returns total amount of MPLX paid by users to the gateway",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "revenue"
+                ],
+                "summary": "Get total MPLX revenue",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/statsapi.TotalPaidMPLXResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "description": "Endpoint is used to check if API is alive",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ping"
+                ],
+                "summary": "Live check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {}
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {}
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {}
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "statsapi.DailyRequestsResponse": {
+            "type": "object",
+            "properties": {
+                "daily_requests": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "chain": {
+                                "type": "string"
+                            },
+                            "day": {
+                                "type": "string"
+                            },
+                            "request_type": {
+                                "type": "string"
+                            },
+                            "requests": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "statsapi.DailyRewardsEarnedResponse": {
+            "type": "object",
+            "properties": {
+                "daily_rewards_earned": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "day": {
+                                "type": "string"
+                            },
+                            "earned": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "statsapi.DailyUsersSnapshotResponse": {
+            "type": "object",
+            "properties": {
+                "daily_users_snapshot": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "active_users": {
+                                "type": "integer"
+                            },
+                            "advanced_subscriptions": {
+                                "type": "integer"
+                            },
+                            "day": {
+                                "type": "string"
+                            },
+                            "pay_as_you_go": {
+                                "type": "integer"
+                            },
+                            "pro_subscriptions": {
+                                "type": "integer"
+                            },
+                            "total_users": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "statsapi.DistributedMPLXDailyResponse": {
+            "type": "object",
+            "properties": {
+                "distributed_daily": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "day": {
+                                "type": "string"
+                            },
+                            "paid": {
+                                "type": "integer"
+                            },
+                            "provider": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "statsapi.PaidMPLXDailyResponse": {
+            "type": "object",
+            "properties": {
+                "paid_daily": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "day": {
+                                "type": "string"
+                            },
+                            "volume": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "statsapi.StartAndEndDatesParams": {
+            "type": "object",
+            "properties": {
+                "end_day": {
+                    "type": "string"
+                },
+                "start_day": {
+                    "type": "string"
+                }
+            }
+        },
+        "statsapi.TotalDistributedMPLXResponse": {
+            "type": "object",
+            "properties": {
+                "distributed_total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "statsapi.TotalPaidMPLXResponse": {
+            "type": "object",
+            "properties": {
+                "paid_total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "statsapi.TotalRewardsEarnedResponse": {
+            "type": "object",
+            "properties": {
+                "total_earned": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}
