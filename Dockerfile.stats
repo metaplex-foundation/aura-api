@@ -1,0 +1,18 @@
+FROM quay.io/projectquay/golang:1.22 AS builder
+
+WORKDIR /app
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} go build -a -v -installsuffix cgo ./cmd/statsapi
+
+FROM alpine:3.20
+
+WORKDIR /app
+RUN apk add ca-certificates
+COPY --from=builder /app/statsapi /app
+COPY --from=builder /app/db /db
+COPY --from=builder /app/creds /creds
+ENV PATH="/app:${PATH}"
+
+ENTRYPOINT [ "./statsapi" ]
