@@ -34,7 +34,7 @@ func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecent
 	    count(rpc_method) as total_req,
 	    is_mainnet
 	FROM aura.stats
-	WHERE day < toDate(now(), 'Etc/UTC') %s
+	WHERE day < toDate(now(), 'Etc/UTC') %s and status = 200
 	GROUP BY chain, request_type, is_mainnet, provider, rpc_method, rpc_request_data, day
     `, selectRecentDataCondition)
 	_, err := s.conn.ExecContext(ctx, query)
