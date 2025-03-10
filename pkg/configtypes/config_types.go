@@ -27,10 +27,11 @@ type (
 	}
 
 	StatsAPIConfig struct {
-		Hostname    string `envconfig:"HOSTNAME" default:"unspecified" required:"true" split_words:"true"`
-		CertFile    string `envconfig:"STATS_API_CERT_FILE" required:"false" split_words:"true"`
-		Port        uint64 `envconfig:"STATS_API_PORT" required:"true" split_words:"true"`
-		SwaggerPort uint64 `envconfig:"STATS_API_SWAGGER_PORT" required:"true" split_words:"true"`
+		Hostname       string   `envconfig:"HOSTNAME" default:"unspecified" required:"true" split_words:"true"`
+		CertFile       string   `envconfig:"STATS_API_CERT_FILE" required:"false" split_words:"true"`
+		Port           uint64   `envconfig:"STATS_API_PORT" required:"true" split_words:"true"`
+		SwaggerPort    uint64   `envconfig:"STATS_API_SWAGGER_PORT" required:"true" split_words:"true"`
+		AllowedOrigins []string `envconfig:"STATS_API_ALLOWED_ORIGINS" required:"true" split_words:"true"`
 	}
 )
 

@@ -90,7 +90,7 @@ func (s *Storage) GetDailyMPLXDistributed(ctx context.Context, startDay, endDay 
 			providers_rewards pr ON rt.rwd_provider = pr.prw_provider 
 			AND rt.rwd_rewards_day = pr.prw_day
 		WHERE 
-			rt.rwd_paid_at BETWEEN ? AND ?
+			rt.rwd_paid_at::date BETWEEN ? AND ?
 		GROUP BY 
 			rt.rwd_paid_at,
 			rt.rwd_provider

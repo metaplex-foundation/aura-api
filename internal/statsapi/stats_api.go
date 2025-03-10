@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/api/docs"
 	"github.com/adm-metaex/aura-api/internal/config"
+	"github.com/adm-metaex/aura-api/internal/statsapi/docs"
 	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
@@ -61,8 +61,8 @@ func NewAPI(mainCtx context.Context, cfg config.StatsAPIConfig) (a *statsApi, er
 
 	a = &statsApi{
 		conf:         cfg.API,
-		router:       initAPIServer(),
-		routerAPIDoc: initAPIServer(),
+		router:       initAPIServer(cfg.API.AllowedOrigins),
+		routerAPIDoc: initAPIServer(cfg.API.AllowedOrigins),
 		waitGroup:    &sync.WaitGroup{},
 		ctx:          ctx,
 		ctxCancel:    cancelFunc,
@@ -90,13 +90,12 @@ func NewAPI(mainCtx context.Context, cfg config.StatsAPIConfig) (a *statsApi, er
 	return a, nil
 }
 
-func initAPIServer() *echo.Echo {
+func initAPIServer(allowedOrigins []string) *echo.Echo {
 	s := echo.New()
 	echo2.SetupServer(s, false)
 
 	echo2.InitBaseMiddlewares(s, middleware.CORSWithConfig(middleware.CORSConfig{
-		// TODO!: move to config
-		AllowOrigins:     []string{"https://aura-app.metaplex.com", "https://aura-app.dev.metaplex.com", "http://localhost:3000", "https://localhost:3000"},
+		AllowOrigins:     allowedOrigins,
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowCredentials: true,
 	}))
@@ -112,11 +111,6 @@ func initAPIServer() *echo.Echo {
 // @BasePath					/
 // @schemes					    http https
 // @accept						json
-//
-// @securityDefinitions.apikey	ApiKeyAuth
-// @in							header
-// @name						Authorization
-// @description				    Bearer JWT
 func (a *statsApi) initAPIDocsHandlers() {
 	// api docs
 	a.routerAPIDoc.GET("*", echoSwagger.WrapHandler)

@@ -32,7 +32,7 @@ type (
 	}
 
 	Volume struct {
-		Volume int64
+		Volume int64 `pg:"volume"`
 	}
 
 	DailyVolume struct {
@@ -197,7 +197,7 @@ func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
 }
 
 func (s *Storage) GetTotalMPLXVolume(ctx context.Context) (int64, error) {
-	query := `SELECT SUM(crp_mplx_amount) FROM crypto_payments WHERE crp_status = 'paid';`
+	query := `SELECT SUM(crp_mplx_amount) as volume FROM crypto_payments WHERE crp_status = 'paid';`
 	var result Volume
 	_, err := s.db.QueryOneContext(ctx, &result, query)
 	if err != nil {

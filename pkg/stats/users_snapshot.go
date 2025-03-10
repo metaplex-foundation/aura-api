@@ -49,7 +49,9 @@ func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
 		return err
 	}
 
-	numberOfActiveUsers, err := c.chStorage.GetNumberOfActiveUsers(ctx)
+	yesterday := time.Now().AddDate(0, 0, -1).UTC()
+
+	numberOfActiveUsers, err := c.chStorage.GetNumberOfActiveUsersForDay(ctx, yesterday)
 	if err != nil {
 		return err
 	}

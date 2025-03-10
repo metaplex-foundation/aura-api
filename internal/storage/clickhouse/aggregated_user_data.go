@@ -22,10 +22,6 @@ type UserAggregatedStat struct {
 	ResponseSizeBytes int64     `json:"response_size_bytes"`
 }
 
-type Count struct {
-	int64
-}
-
 const (
 	userDailyAggregatedTableName  = "aura.aggregated_user_daily_data"
 	userHourlyAggregatedTableName = "aura.aggregated_user_hourly_data"
@@ -332,10 +328,10 @@ func (s *Storage) AggregateUserDataDaily(ctx context.Context, aggregateOnlyRecen
 	return nil
 }
 
-func (s *Storage) GetNumberOfActiveUsers(ctx context.Context) (result int64, err error) {
-	query := `SELECT COUNT(DISTINCT user_uid) as count FROM aura.aggregated_user_daily_data;`
+func (s *Storage) GetNumberOfActiveUsersForDay(ctx context.Context, day time.Time) (result int64, err error) {
+	query := fmt.Sprintf(`SELECT COUNT(DISTINCT user_uid) as count FROM aura.aggregated_user_daily_data where day = '%s';`, day.Format("2006-01-02"))
 
-	var count Count
+	var count int64
 
 	row := s.conn.QueryRow(query)
 	err = row.Scan(&count)
@@ -343,5 +339,5 @@ func (s *Storage) GetNumberOfActiveUsers(ctx context.Context) (result int64, err
 		return result, fmt.Errorf("scan: %s", err)
 	}
 
-	return count.int64, nil
+	return count, nil
 }
