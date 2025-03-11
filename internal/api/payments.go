@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -88,16 +89,19 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 	// prevent rate-limit errors
 	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
+
+	// load last processed signature initially
+	lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
+	if err != nil && !errors.Is(err, pg.ErrNoRows) {
+		log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
+	}
+	p.lastProcessedSignature = lastProcessedSig
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
-			if err != nil && !errors.Is(err, pg.ErrNoRows) {
-				log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
-			}
-			p.lastProcessedSignature = lastProcessedSig
 			unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
 			if err != nil && !errors.Is(err, pg.ErrNoRows) {
 				log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
@@ -134,13 +138,20 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("fetchNewTransactionSignatures: %s", err)
 	}
+
 	for _, sig := range allNewSignatures {
 		transfer, err := p.processTransaction(ctx, sig)
 		if err != nil {
 			log.Logger.API.Errorf("fetchNewTransfers: processTransaction: %s", err)
 			err = p.pgStorage.SaveFailTransactionProcessingSignature(ctx, sig, err.Error())
 			if err != nil {
-				log.Logger.API.Errorf("processNewTransfers: SaveFailTransactionProcessingSignature 1: %s", err)
+				// means we already processed this transaction and saved it as failed
+				// so we shouldn't download it through the RPC again
+				if strings.Contains(err.Error(), postgres.PostgreUniqueViolationErrorCode) {
+					p.lastProcessedSignature = sig
+				} else {
+					log.Logger.API.Errorf("processNewTransfers: SaveFailTransactionProcessingSignature 1: %s", err)
+				}
 			}
 			continue
 		}
@@ -153,6 +164,9 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			}
 			continue
 		}
+
+		p.lastProcessedSignature = sig
+
 		// prevent rate-limit errors
 		time.Sleep(250 * time.Millisecond)
 	}
