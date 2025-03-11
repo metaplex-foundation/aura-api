@@ -25,7 +25,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_api_key_limit_trigger
+CREATE OR REPLACE TRIGGER check_api_key_limit_trigger
     BEFORE INSERT ON user_api_keys
     FOR EACH ROW
     EXECUTE FUNCTION check_api_key_limit();
