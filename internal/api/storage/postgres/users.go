@@ -162,7 +162,7 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	LEFT JOIN 
 	    user_api_keys USING(usr_id)
 	WHERE 
-	    user_api_keys.uak_token = ?
+	    user_api_keys.uak_token = ? AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false
 	GROUP BY 
 	    users.usr_id, users.usr_dynamic_id, users.sbs_id, users.usr_mplx_balance, users.usr_sbs_ends_on;`
 	_, err = s.db.QueryOneContext(ctx, &u, query, apiToken)
