@@ -156,7 +156,9 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	    users.sbs_id,
 	    users.usr_mplx_balance,
 	    users.usr_sbs_ends_on,
-	    (SELECT json_agg(user_api_keys.uak_token) FROM user_api_keys WHERE user_api_keys.usr_id = users.usr_id) as api_keys
+	    (SELECT json_agg(user_api_keys.uak_token) 
+			FROM user_api_keys 
+				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) as api_keys
 	FROM 
 	    users
 	LEFT JOIN 
