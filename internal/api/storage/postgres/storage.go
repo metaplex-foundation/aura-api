@@ -31,8 +31,6 @@ const (
 	SubscriptionsChangeCooldawnErrorText = "Subscription changes are allowed once per 24 hours."
 	InsufficientBalanceErrorText         = "Insufficient balance to change subscription."
 	CannotSwitchSubscriptionErrorText    = "Cannot switch to the selected subscription."
-
-	PostgreUniqueViolationErrorCode = "ERROR #23505"
 )
 
 func New(ctx context.Context, cfg configtypes.PostgresConfig) (s Storage, err error) { //nolint:gocritic

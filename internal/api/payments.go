@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -145,14 +144,10 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			log.Logger.API.Errorf("fetchNewTransfers: processTransaction: %s", err)
 			err = p.pgStorage.SaveFailTransactionProcessingSignature(ctx, sig, err.Error())
 			if err != nil {
-				// means we already processed this transaction and saved it as failed
-				// so we shouldn't download it through the RPC again
-				if strings.Contains(err.Error(), postgres.PostgreUniqueViolationErrorCode) {
-					p.lastProcessedSignature = sig
-				} else {
-					log.Logger.API.Errorf("processNewTransfers: SaveFailTransactionProcessingSignature 1: %s", err)
-				}
+				log.Logger.API.Errorf("processNewTransfers: SaveFailTransactionProcessingSignature 1: %s", err)
 			}
+
+			p.lastProcessedSignature = sig
 			continue
 		}
 		err = p.pgStorage.UpdatePayments(ctx, []postgres.TransferInfo{transfer})
