@@ -20,9 +20,10 @@ type (
 		LastUpdatedPlanAt  time.Time `pg:"usr_last_updated_plan_at" json:"last_updated_plan_at"`
 		SubscriptionEndsOn time.Time `pg:"usr_sbs_ends_on" json:"usr_sbs_ends_on"`
 	}
-	UserWithCurrentPlan struct {
+	UserWithPlans struct {
 		User
-		Plan
+		CurrentPlan Plan `pg:"curr" json:"current_plan"`
+		NextPlan    Plan `pg:"next" json:"next_plan"`
 	}
 	UserWithAPIKeys struct {
 		DynamicID          string     `pg:"usr_dynamic_id"`
@@ -55,7 +56,7 @@ const (
 	usersTable = "users"
 )
 
-func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u UserWithCurrentPlan, err error) {
+func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u UserWithPlans, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
@@ -101,31 +102,62 @@ func (s *Storage) CreateUser(ctx context.Context, dynamicID string) error {
 	return nil
 }
 
-func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurrentPlan, err error) {
+func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithPlans, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
 
-	query := `SELECT usr_id, usr_dynamic_id, usr_created_at, usr_mplx_balance, usr_last_updated_plan_at, sbs_id, usr_sbs_ends_on, sbs_priority, sbs_name, sbs_tokens_limit, sbs_created_at
+	query := `SELECT usr_id,
+					 usr_mplx_balance,
+					 usr_dynamic_id, 
+					 usr_created_at,  
+					 usr_last_updated_plan_at,
+					 usr_sbs_ends_on,
+
+					 curr_sbs.sbs_id as curr_sbs_id, 
+					 curr_sbs.sbs_name as curr_sbs_name, 
+					 curr_sbs.sbs_tokens_limit as curr_sbs_tokens_limit, 
+					 curr_sbs.sbs_priority as curr_sbs_priority,
+					 curr_sbs.sbs_created_at as curr_sbs_created_at,
+
+					 next_sbs.sbs_id as next_sbs_id, 
+					 next_sbs.sbs_name as next_sbs_name, 
+					 next_sbs.sbs_tokens_limit as next_sbs_tokens_limit, 
+					 next_sbs.sbs_priority as next_sbs_priority,
+					 next_sbs.sbs_created_at as next_sbs_created_at
 				FROM users 
-    			LEFT JOIN subscriptions USING(sbs_id)
+				LEFT JOIN subscriptions as curr_sbs ON users.sbs_id = curr_sbs.sbs_id
+				LEFT JOIN subscriptions as next_sbs ON users.usr_next_sbs_id = next_sbs.sbs_id
 				WHERE usr_dynamic_id = ?`
-	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
+
+	var currPlan, nextPlan Plan
+	_, err = s.db.QueryOneContext(ctx, pg.Scan(
+		&u.ID,
+		&u.MplxBalance,
+		&u.DynamicID,
+		&u.CreatedAt,
+		&u.LastUpdatedPlanAt,
+		&u.SubscriptionEndsOn,
+		&currPlan.PlanID,
+		&currPlan.Name,
+		&currPlan.TokenLimit,
+		&currPlan.Priority,
+		&currPlan.CreatedAt,
+		&nextPlan.PlanID,
+		&nextPlan.Name,
+		&nextPlan.TokenLimit,
+		&nextPlan.Priority,
+		&nextPlan.CreatedAt,
+	), query, dynamicID)
+
 	if err != nil {
 		return u, err
 	}
 
+	u.CurrentPlan = currPlan
+	u.NextPlan = nextPlan
+
 	return u, nil
-}
-
-func (s *Storage) UpdateUserSubscriptionPlan(ctx context.Context, usrID int64, subscriptionID int64) (err error) {
-	query := `UPDATE users SET sbs_id = ? WHERE usr_id = ?;`
-	_, err = s.db.ExecOneContext(ctx, query, subscriptionID, usrID)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserWithAPIKeys, err error) {
@@ -138,13 +170,15 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	    users.sbs_id,
 	    users.usr_mplx_balance,
 	    users.usr_sbs_ends_on,
-	    (SELECT json_agg(user_api_keys.uak_token) FROM user_api_keys WHERE user_api_keys.usr_id = users.usr_id) as api_keys
+	    (SELECT json_agg(user_api_keys.uak_token) 
+			FROM user_api_keys 
+				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) as api_keys
 	FROM 
 	    users
 	LEFT JOIN 
 	    user_api_keys USING(usr_id)
 	WHERE 
-	    user_api_keys.uak_token = ?
+	    user_api_keys.uak_token = ? AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false
 	GROUP BY 
 	    users.usr_id, users.usr_dynamic_id, users.sbs_id, users.usr_mplx_balance, users.usr_sbs_ends_on;`
 	_, err = s.db.QueryOneContext(ctx, &u, query, apiToken)

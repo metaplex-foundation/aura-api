@@ -96,6 +96,7 @@ type (
 		LastUpdatedPlanAt  time.Time               `json:"last_updated_plan_at"`
 		SubscriptionEndsOn time.Time               `json:"subscription_ends_on"`
 		Subscription       SubscriptionWithPricing `json:"subscription"`
+		NextSubscription   SubscriptionWithPricing `json:"next_subscription"`
 	}
 	UIPricing struct {
 		RequestsPerSecond int32 `json:"requests_per_second"`
@@ -153,13 +154,14 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) (u User) {
+func (a *api) UserWithPlansFromDBModel(user *postgres.UserWithPlans, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) (u User) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt
 	u.LastUpdatedPlanAt = user.User.LastUpdatedPlanAt
 	u.SubscriptionEndsOn = user.User.SubscriptionEndsOn
-	u.Subscription = SubscriptionWithPricingFromDBModel(user.Plan, pricing, mplxPrice)
+	u.Subscription = SubscriptionWithPricingFromDBModel(user.CurrentPlan, pricing, mplxPrice)
+	u.NextSubscription = SubscriptionWithPricingFromDBModel(user.NextPlan, pricing, mplxPrice)
 	return u
 }
 

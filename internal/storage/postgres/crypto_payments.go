@@ -155,6 +155,7 @@ func (s *Storage) GetUserPaymentHistory(ctx context.Context, userID, limit, page
 
 	return paymentHistory, nil
 }
+
 func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
