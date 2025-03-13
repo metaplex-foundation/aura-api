@@ -88,16 +88,19 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 	// prevent rate-limit errors
 	ticker := time.NewTicker(250 * time.Millisecond)
 	defer ticker.Stop()
+
+	// load last processed signature initially
+	lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
+	if err != nil && !errors.Is(err, pg.ErrNoRows) {
+		log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
+	}
+	p.lastProcessedSignature = lastProcessedSig
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			lastProcessedSig, err := p.pgStorage.FetchLastProcessedSignature(ctx)
-			if err != nil && !errors.Is(err, pg.ErrNoRows) {
-				log.Logger.API.Errorf("watchPayments: FetchLastProcessedSignature: %s", err)
-			}
-			p.lastProcessedSignature = lastProcessedSig
 			unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
 			if err != nil && !errors.Is(err, pg.ErrNoRows) {
 				log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
@@ -134,6 +137,7 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 	if err != nil {
 		return fmt.Errorf("fetchNewTransactionSignatures: %s", err)
 	}
+
 	for _, sig := range allNewSignatures {
 		transfer, err := p.processTransaction(ctx, sig)
 		if err != nil {
@@ -142,6 +146,8 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			if err != nil {
 				log.Logger.API.Errorf("processNewTransfers: SaveFailTransactionProcessingSignature 1: %s", err)
 			}
+
+			p.lastProcessedSignature = sig
 			continue
 		}
 		err = p.pgStorage.UpdatePayments(ctx, []postgres.TransferInfo{transfer})
@@ -153,6 +159,9 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			}
 			continue
 		}
+
+		p.lastProcessedSignature = sig
+
 		// prevent rate-limit errors
 		time.Sleep(250 * time.Millisecond)
 	}
