@@ -154,7 +154,7 @@ func (p *UpdateAPIKeyRequestParams) Validate(availableNetworks map[string]int64)
 	return nil
 }
 
-func (a *api) UserWithCurrentPlanFromDBModel(user *postgres.UserWithCurrentPlan, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) (u User) {
+func (a *api) UserWithPlansFromDBModel(user *postgres.UserWithPlans, pricing configtypes.PricingPlans, mplxPrice decimal.Decimal) (u User) {
 	u.DynamicID = user.DynamicID
 	u.MplxBalance = user.MplxBalance
 	u.CreatedAt = user.User.CreatedAt

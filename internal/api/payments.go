@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/memo"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/go-co-op/gocron"
 	"github.com/go-pg/pg/v10"
 	"github.com/mr-tron/base58"
 	"github.com/shopspring/decimal"
@@ -128,39 +129,19 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 	}
 }
 
-func (p *paymentsWatcher) resetExpiredPaymentPlans(ctx context.Context) (err error) {
-	now := time.Now()
-	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.UTC().Location())
-	durationUntilMidnight := time.Until(nextMidnight)
-
-	select {
-	case <-time.After(durationUntilMidnight):
-		err = p.pgStorage.ResetExpiredPaymentPlans(ctx)
+func (p *paymentsWatcher) resetExpiredPaymentPlans(ctx context.Context) {
+	cron := gocron.NewScheduler(time.UTC)
+	_, err := cron.Every(1).Day().At("00:00").Do(func() {
+		err := p.pgStorage.ResetExpiredPaymentPlans(ctx)
 		if err != nil {
-			return fmt.Errorf("CancelUnpaidPayments: %w", err)
+			log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 		}
-	case <-ctx.Done():
-		log.Logger.API.Infof("Shutdown received. Exiting autoResetExpiredPaymentPlans")
-		return
+	})
+	if err != nil {
+		log.Logger.Collector.Fatalf("cron: %s", err)
 	}
 
-	// Run the task every 24 hours
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			err = p.pgStorage.ResetExpiredPaymentPlans(ctx)
-			if err != nil {
-				log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
-				return
-			}
-		case <-ctx.Done():
-			log.Logger.API.Infof("Shutdown received. Exiting autoResetExpiredPaymentPlans")
-			return
-		}
-	}
+	cron.StartAsync()
 }
 
 // TODO: consider user reusing reference in multiple txs

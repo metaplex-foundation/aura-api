@@ -45,13 +45,13 @@ func ToHTTPError(err error) *echo.HTTPError {
 	case *SubscriptionUpdatedTooOftenError:
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	case *PgTransactionError:
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	case *PgSelectError:
-		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		return echo.NewHTTPError(http.StatusNotFound)
 	case *PgInsertError:
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	case *PgUpdateError:
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError)
 	case *UpgradeSubscriptionError:
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	case *DowngradeSubscriptionError:

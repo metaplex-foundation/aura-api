@@ -84,7 +84,7 @@ func (a *api) getUserHandler(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
-	return c.JSON(http.StatusOK, a.UserWithCurrentPlanFromDBModel(&u, a.pricing, a.mplxPrice))
+	return c.JSON(http.StatusOK, a.UserWithPlansFromDBModel(&u, a.pricing, a.mplxPrice))
 }
 
 // createAPIKeyHandler godoc

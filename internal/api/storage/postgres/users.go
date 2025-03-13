@@ -20,7 +20,7 @@ type (
 		LastUpdatedPlanAt  time.Time `pg:"usr_last_updated_plan_at" json:"last_updated_plan_at"`
 		SubscriptionEndsOn time.Time `pg:"usr_sbs_ends_on" json:"usr_sbs_ends_on"`
 	}
-	UserWithCurrentPlan struct {
+	UserWithPlans struct {
 		User
 		CurrentPlan Plan `pg:"curr" json:"current_plan"`
 		NextPlan    Plan `pg:"next" json:"next_plan"`
@@ -42,7 +42,7 @@ const (
 	usersTable = "users"
 )
 
-func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u UserWithCurrentPlan, err error) {
+func (s *Storage) GetOrCreateUser(ctx context.Context, dynamicID string) (u UserWithPlans, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
@@ -88,7 +88,7 @@ func (s *Storage) CreateUser(ctx context.Context, dynamicID string) error {
 	return nil
 }
 
-func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithCurrentPlan, err error) {
+func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithPlans, err error) {
 	if dynamicID == "" {
 		return u, ErrEmptyDynamicID
 	}
