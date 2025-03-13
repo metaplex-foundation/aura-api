@@ -32,7 +32,7 @@ type (
 		APIKeys            []string   `pg:"api_keys"`
 	}
 
-	UsersCountByPlans struct {
+	UserCountByPlan struct {
 		SubscriptionId int8  `pg:"subscription"`
 		Count          int64 `pg:"users_count"`
 	}
@@ -208,7 +208,7 @@ func (s *Storage) GetCountOfSubscriptionUsersByDay(ctx context.Context, subscrip
 	return result.Count, nil
 }
 
-func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []UsersCountByPlans, err error) {
+func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []UserCountByPlan, err error) {
 	query := `SELECT
 				sbs_id as subscription,
 				COUNT(*) as users_count
