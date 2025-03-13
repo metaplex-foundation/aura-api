@@ -149,10 +149,10 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 	}
 	defer tx.Rollback()
 
-	var currentSubscriptionId, currentSubscriptionPriority, nextSubscriptionPriority int64
+	var currentSubscriptionId, currentSubscriptionPriority, nextSubscriptionPriority, lockedUsrID int64
 	var lastChangedAt time.Time
 	query := `
-		SELECT u.sbs_id, cs.sbs_priority, u.usr_last_updated_plan_at, ns.sbs_priority
+		SELECT u.sbs_id, cs.sbs_priority, u.usr_last_updated_plan_at, ns.sbs_priority, usr_id
 		FROM users u
 		JOIN subscriptions cs ON u.sbs_id = cs.sbs_id
 		JOIN subscriptions ns ON ns.sbs_id = ?
@@ -166,6 +166,7 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 			&currentSubscriptionPriority,
 			&lastChangedAt,
 			&nextSubscriptionPriority,
+			&lockedUsrID,
 		),
 		query,
 		nextSubscriptionId,
