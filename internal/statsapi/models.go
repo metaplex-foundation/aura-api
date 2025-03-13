@@ -73,12 +73,12 @@ const (
 func ExtractDatesFromQuery(c echo.Context) (startDay, endDay time.Time, err error) {
 	startDay, err = time.Parse("2006-01-02", c.QueryParam(StartDayParam))
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, time.Time{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid start_day parameter")
 	}
 
 	endDay, err = time.Parse("2006-01-02", c.QueryParam(EntDayParam))
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, time.Time{}, echo.NewHTTPError(http.StatusBadRequest, "Invalid end_day parameter")
 	}
 
 	err = ValidateDates(startDay, endDay)
