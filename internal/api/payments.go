@@ -129,10 +129,10 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 	}
 }
 
-func (p *paymentsWatcher) resetExpiredPaymentPlans(ctx context.Context) {
+func (p *paymentsWatcher) renewExpiredPaymentPlans(ctx context.Context) {
 	cron := gocron.NewScheduler(time.UTC)
 	_, err := cron.Every(1).Day().At("00:00").Do(func() {
-		err := p.pgStorage.ResetExpiredPaymentPlans(ctx)
+		err := p.pgStorage.RenewExpiredPaymentPlans(ctx)
 		if err != nil {
 			log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 		}

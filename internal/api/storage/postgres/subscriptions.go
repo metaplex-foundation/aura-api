@@ -51,9 +51,8 @@ func (s *Storage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptio
 
 func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, newSubscriptionID int64) (err error) {
 	var (
-		newSubscriptionPrice, newSubscriptionPriority, userBalance             int64
-		currSubscriptionEndsOn                                                 *time.Time
-		oldSubscriptionPriority, newSubscriptionPeriodDays, currSubscriptionID *int64
+		newSubscriptionPrice, newSubscriptionPriority, userBalance, newSubscriptionPeriodDays, oldSubscriptionPriority, currSubscriptionID int64
+		currSubscriptionEndsOn                                                                                                             *time.Time
 	)
 
 	tx, err := s.BeginTx(ctx)
@@ -62,8 +61,14 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 	}
 	defer tx.Rollback()
 
+	keysDiff, err := tx.GetSubscriptionKeysDiff(ctx, usrID, newSubscriptionID)
+	if err != nil {
+		return err
+	}
+	tx.RestoreAPIKeys(ctx, usrID, keysDiff)
+
 	selectNewSubscription := `
-	SELECT 
+	SELECT
 		sbs_price_mplx, 
 		sbs_period_days, 
 		sbs_priority 
@@ -95,7 +100,7 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to retrieve info about an old subscription: %s", err)}
 	}
 
-	if oldSubscriptionPriority != nil && newSubscriptionPriority <= *oldSubscriptionPriority {
+	if newSubscriptionPriority <= oldSubscriptionPriority {
 		return &customErrors.UpgradeSubscriptionError{Msg: "Cannot upgrade to a subscription with lower or the same priority"}
 	}
 
@@ -103,10 +108,6 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 		return &customErrors.UpgradeSubscriptionError{Msg: "Insufficient balance to change subscription"}
 	}
 
-	if newSubscriptionPeriodDays == nil {
-		defaultValue := int64(0)
-		newSubscriptionPeriodDays = &defaultValue
-	}
 	// Update user's balance, expiration date, last updated plan timestamp, and subscription ID
 	updateUserQuery := `
 		UPDATE users 
@@ -155,7 +156,8 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		FROM users u
 		JOIN subscriptions cs ON u.sbs_id = cs.sbs_id
 		JOIN subscriptions ns ON ns.sbs_id = ?
-		WHERE u.usr_id = ?`
+		WHERE u.usr_id = ?
+		FOR UPDATE SKIP LOCKED`
 
 	if _, err = tx.db.QueryOneContext(
 		ctx,
@@ -194,6 +196,25 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		return &customErrors.PgUpdateError{Msg: fmt.Sprintf("Failed to update rows: %v", err)}
 	}
 
+	var (
+		activeKeysCount, allowedKeysLimit int64
+	)
+	countActiveKeysAndAllowedKeysLimitQuery := `
+		SELECT 
+			(SELECT COUNT(*) 
+			 FROM  user_api_keys 
+			 WHERE usr_id = ? AND deprecated = false AND uak_deleted_at IS NULL FOR UPDATE) AS active_keys_count,
+			(SELECT sbs_tokens_limit 
+			 FROM subscriptions 
+			 WHERE sbs_id = ? FOR UPDATE) AS allowed_keys_limit;`
+	if _, err = tx.db.QueryOneContext(ctx, pg.Scan(&activeKeysCount, &allowedKeysLimit), countActiveKeysAndAllowedKeysLimitQuery, userID, currentSubscriptionId); err != nil {
+		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to count active keys and get allowed keys limit: %v", err)}
+	}
+
+	if activeKeysCount > allowedKeysLimit {
+		return &customErrors.DowngradeSubscriptionError{Msg: "Downgrade not allowed: number of active keys exceeds the limit of the requested subscription"}
+	}
+
 	if err = tx.Commit(ctx); err != nil {
 		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
 	}
@@ -222,26 +243,55 @@ func (s *Storage) UndoSubscriptionDowngrading(ctx context.Context, userID int64)
 	return nil
 }
 
-func (s *Storage) ResetExpiredPaymentPlans(ctx context.Context) error {
+func (s *Storage) RenewExpiredPaymentPlans(ctx context.Context) error {
 	tx, err := s.BeginTx(ctx)
 	if err != nil {
 		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to start transaction: %v", err)}
 	}
 	defer tx.Rollback()
 
-	var usersIDs []int
-	selectQuery := `
-		SELECT usr_id FROM users 
-		WHERE sbs_id != 1 AND NOW() > usr_sbs_ends_on
+	userWithSubscriptionsQuery := `
+		SELECT usr_id, 
+		CASE 
+			WHEN usr_mplx_balance >= (SELECT sbs_price_mplx FROM subscriptions WHERE sbs_id = usr_next_sbs_id) 
+			THEN usr_next_sbs_id 
+			ELSE 1
+		END as usr_next_sbs_id
+		FROM users 
+		WHERE usr_sbs_ends_on IS NOT NULL AND NOW() > usr_sbs_ends_on
 		FOR UPDATE SKIP LOCKED;
 	`
 
-	if _, err = tx.db.QueryContext(ctx, &usersIDs, selectQuery); err != nil {
+	var usersWithSubscriptions []struct {
+		UserID    int64 `pg:"usr_id"`
+		NextSbsID int64 `pg:"usr_next_sbs_id"`
+	}
+	if _, err = tx.db.QueryContext(ctx, &usersWithSubscriptions, userWithSubscriptionsQuery); err != nil {
 		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to select rows: %v", err)}
 	}
 
-	if len(usersIDs) == 0 {
+	if len(usersWithSubscriptions) == 0 {
 		return nil
+	}
+
+	usersIDs := make([]int64, 0, len(usersWithSubscriptions))
+	for _, uws := range usersWithSubscriptions {
+		usersIDs = append(usersIDs, uws.UserID)
+		keysDiff, err := tx.GetSubscriptionKeysDiff(ctx, uws.UserID, uws.NextSbsID)
+		if err != nil {
+			return err
+		}
+
+		if keysDiff > 0 {
+			if err := tx.RestoreAPIKeys(ctx, uws.UserID, keysDiff); err != nil {
+				return err
+			}
+		} else if keysDiff < 0 {
+			keysDiff = -keysDiff
+			if err := tx.DeprecateAPIKeys(ctx, uws.UserID, keysDiff, uws.NextSbsID); err != nil {
+				return err
+			}
+		}
 	}
 
 	updateQuery := `
