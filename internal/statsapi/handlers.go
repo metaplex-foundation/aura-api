@@ -50,24 +50,21 @@ func (a *statsApi) getNetworkRevenuePaidTotal(c echo.Context) (err error) {
 //	@Tags			revenue
 //	@Accept			json
 //	@Produce		json
-//	@Param			request_body	body		StartAndEndDatesParams	true	"Start and end dates"
+//	@Param			start_day	query		string	false "Start day. Example 2024-12-23"
+//	@Param			end_day  	query		string	false "End day. Example 2024-12-25"
 //	@Success		200				{object}	PaidMPLXDailyResponse
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
-//	@Router			/network/revenue/paid/daily [post]
+//	@Router			/network/revenue/paid/daily [get]
 func (a *statsApi) getNetworkRevenuePaidDaily(c echo.Context) (err error) {
-	var params StartAndEndDatesParams
-	if err = c.Bind(&params); err != nil {
-		return err
-	}
-
-	err = params.Validate()
+	startDay, endDay, err := ExtractDatesFromQuery(c)
 	if err != nil {
+		log.Logger.StatsAPI.Errorf("ExtractDatesFromQuery: %s", err)
 		return err
 	}
 
-	paidMPLX, err := a.pgStorage.GetDailyMPLXVolume(c.Request().Context(), params.StartDay.Time, params.EndDay.Time)
+	paidMPLX, err := a.pgStorage.GetDailyMPLXVolume(c.Request().Context(), startDay, endDay)
 	if err != nil {
 		log.Logger.StatsAPI.Errorf("GetDailyMPLXVolume: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -104,24 +101,21 @@ func (a *statsApi) getNetworkRevenueDistributedTotal(c echo.Context) (err error)
 //	@Tags			revenue
 //	@Accept			json
 //	@Produce		json
-//	@Param			request_body	body		StartAndEndDatesParams	true	"Start and end dates"
+//	@Param			start_day	query		string	false "Start day. Example 2024-12-23"
+//	@Param			end_day  	query		string	false "End day. Example 2024-12-25"
 //	@Success		200				{object}	DistributedMPLXDailyResponse
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
-//	@Router			/network/revenue/distributed/daily [post]
+//	@Router			/network/revenue/distributed/daily [get]
 func (a *statsApi) getNetworkRevenueDistributedDaily(c echo.Context) (err error) {
-	var params StartAndEndDatesParams
-	if err = c.Bind(&params); err != nil {
-		return err
-	}
-
-	err = params.Validate()
+	startDay, endDay, err := ExtractDatesFromQuery(c)
 	if err != nil {
+		log.Logger.StatsAPI.Errorf("ExtractDatesFromQuery: %s", err)
 		return err
 	}
 
-	dailyDistributedMPLX, err := a.pgStorage.GetDailyMPLXDistributed(c.Request().Context(), params.StartDay.Time, params.EndDay.Time)
+	dailyDistributedMPLX, err := a.pgStorage.GetDailyMPLXDistributed(c.Request().Context(), startDay, endDay)
 	if err != nil {
 		log.Logger.StatsAPI.Errorf("GetDailyMPLXDistributed: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -158,24 +152,21 @@ func (a *statsApi) getTotalRewardsEarned(c echo.Context) (err error) {
 //	@Tags			revenue
 //	@Accept			json
 //	@Produce		json
-//	@Param			request_body	body		StartAndEndDatesParams	true	"Start and end dates"
+//	@Param			start_day	query		string	false "Start day. Example 2024-12-23"
+//	@Param			end_day  	query		string	false "End day. Example 2024-12-25"
 //	@Success		200				{object}	DailyRewardsEarnedResponse
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
-//	@Router			/network/revenue/earned/daily [post]
+//	@Router			/network/revenue/earned/daily [get]
 func (a *statsApi) getDailyRewardsEarned(c echo.Context) (err error) {
-	var params StartAndEndDatesParams
-	if err = c.Bind(&params); err != nil {
-		return err
-	}
-
-	err = params.Validate()
+	startDay, endDay, err := ExtractDatesFromQuery(c)
 	if err != nil {
+		log.Logger.StatsAPI.Errorf("ExtractDatesFromQuery: %s", err)
 		return err
 	}
 
-	dailyRewardsEarned, err := a.pgStorage.GetDailyEarnedRewards(c.Request().Context(), params.StartDay.Time, params.EndDay.Time)
+	dailyRewardsEarned, err := a.pgStorage.GetDailyEarnedRewards(c.Request().Context(), startDay, endDay)
 	if err != nil {
 		log.Logger.StatsAPI.Errorf("GetDailyEarnedRewards: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -191,24 +182,21 @@ func (a *statsApi) getDailyRewardsEarned(c echo.Context) (err error) {
 //	@Tags			metrics
 //	@Accept			json
 //	@Produce		json
-//	@Param			request_body	body		StartAndEndDatesParams	true	"Start and end dates"
+//	@Param			start_day	query		string	false "Start day. Example 2024-12-23"
+//	@Param			end_day  	query		string	false "End day. Example 2024-12-25"
 //	@Success		200				{object}	DailyRequestsResponse
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
-//	@Router			/metrics/requests/daily [post]
+//	@Router			/metrics/requests/daily [get]
 func (a *statsApi) getDailyRequests(c echo.Context) (err error) {
-	var params StartAndEndDatesParams
-	if err = c.Bind(&params); err != nil {
-		return err
-	}
-
-	err = params.Validate()
+	startDay, endDay, err := ExtractDatesFromQuery(c)
 	if err != nil {
+		log.Logger.StatsAPI.Errorf("ExtractDatesFromQuery: %s", err)
 		return err
 	}
 
-	dailyRequests, err := a.chStorage.GetDailyRequestsByChainAndType(c.Request().Context(), params.StartDay.Time, params.EndDay.Time)
+	dailyRequests, err := a.chStorage.GetDailyRequestsByChainAndType(c.Request().Context(), startDay, endDay)
 	if err != nil {
 		log.Logger.StatsAPI.Errorf("GetDailyRequestsByChainAndType: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
@@ -224,24 +212,21 @@ func (a *statsApi) getDailyRequests(c echo.Context) (err error) {
 //	@Tags			metrics
 //	@Accept			json
 //	@Produce		json
-//	@Param			request_body	body		StartAndEndDatesParams	true	"Start and end dates"
+//	@Param			start_day	query		string	false "Start day. Example 2024-12-23"
+//	@Param			end_day  	query		string	false "End day. Example 2024-12-25"
 //	@Success		200				{object}	DailyUsersSnapshotResponse
 //	@Failure		400				{object}	error
 //	@Failure		401				{object}	error
 //	@Failure		500				{object}	error
-//	@Router			/metrics/users/daily [post]
+//	@Router			/metrics/users/daily [get]
 func (a *statsApi) getDailyUsersSnapshot(c echo.Context) (err error) {
-	var params StartAndEndDatesParams
-	if err = c.Bind(&params); err != nil {
-		return err
-	}
-
-	err = params.Validate()
+	startDay, endDay, err := ExtractDatesFromQuery(c)
 	if err != nil {
+		log.Logger.StatsAPI.Errorf("ExtractDatesFromQuery: %s", err)
 		return err
 	}
 
-	dailyUsersSnapshot, err := a.pgStorage.GetDailyUserSnapshots(c.Request().Context(), params.StartDay.Time, params.EndDay.Time)
+	dailyUsersSnapshot, err := a.pgStorage.GetDailyUserSnapshots(c.Request().Context(), startDay, endDay)
 	if err != nil {
 		log.Logger.StatsAPI.Errorf("GetDailyUserSnapshots: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)

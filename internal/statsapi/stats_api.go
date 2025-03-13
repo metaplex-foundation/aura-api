@@ -122,16 +122,16 @@ func (a *statsApi) initAPIHandlers() {
 	a.router.GET("/ping", a.ping)
 
 	a.router.GET("/network/revenue/paid/total", a.getNetworkRevenuePaidTotal)
-	a.router.POST("/network/revenue/paid/daily", a.getNetworkRevenuePaidDaily)
+	a.router.GET("/network/revenue/paid/daily", a.getNetworkRevenuePaidDaily)
 
 	a.router.GET("/network/revenue/distributed/total", a.getNetworkRevenueDistributedTotal)
-	a.router.POST("/network/revenue/distributed/daily", a.getNetworkRevenueDistributedDaily)
+	a.router.GET("/network/revenue/distributed/daily", a.getNetworkRevenueDistributedDaily)
 
 	a.router.GET("/network/revenue/earned/total", a.getTotalRewardsEarned)
-	a.router.POST("/network/revenue/earned/daily", a.getDailyRewardsEarned)
+	a.router.GET("/network/revenue/earned/daily", a.getDailyRewardsEarned)
 
-	a.router.POST("/metrics/requests/daily", a.getDailyRequests)
-	a.router.POST("/metrics/users/daily", a.getDailyUsersSnapshot)
+	a.router.GET("/metrics/requests/daily", a.getDailyRequests)
+	a.router.GET("/metrics/users/daily", a.getDailyUsersSnapshot)
 }
 
 func (a *statsApi) Run() (err error) {

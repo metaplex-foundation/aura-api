@@ -76,13 +76,6 @@ definitions:
           type: object
         type: array
     type: object
-  statsapi.StartAndEndDatesParams:
-    properties:
-      end_day:
-        type: string
-      start_day:
-        type: string
-    type: object
   statsapi.TotalDistributedMPLXResponse:
     properties:
       distributed_total:
@@ -106,18 +99,20 @@ info:
   version: 0.0.3
 paths:
   /metrics/requests/daily:
-    post:
+    get:
       consumes:
       - application/json
       description: Returns number of requests processed daily, data grouped by request
         type
       parameters:
-      - description: Start and end dates
-        in: body
-        name: request_body
-        required: true
-        schema:
-          $ref: '#/definitions/statsapi.StartAndEndDatesParams'
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
       produces:
       - application/json
       responses:
@@ -138,17 +133,19 @@ paths:
       tags:
       - metrics
   /metrics/users/daily:
-    post:
+    get:
       consumes:
       - application/json
       description: Returns number of gateway users
       parameters:
-      - description: Start and end dates
-        in: body
-        name: request_body
-        required: true
-        schema:
-          $ref: '#/definitions/statsapi.StartAndEndDatesParams'
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
       produces:
       - application/json
       responses:
@@ -169,17 +166,19 @@ paths:
       tags:
       - metrics
   /network/revenue/distributed/daily:
-    post:
+    get:
       consumes:
       - application/json
       description: Returns MPLX paid to the DAS providers in a requested timeframe
       parameters:
-      - description: Start and end dates
-        in: body
-        name: request_body
-        required: true
-        schema:
-          $ref: '#/definitions/statsapi.StartAndEndDatesParams'
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
       produces:
       - application/json
       responses:
@@ -222,17 +221,19 @@ paths:
       tags:
       - revenue
   /network/revenue/earned/daily:
-    post:
+    get:
       consumes:
       - application/json
       description: Returns MPLX earned by DAS providers in a requested timeframe
       parameters:
-      - description: Start and end dates
-        in: body
-        name: request_body
-        required: true
-        schema:
-          $ref: '#/definitions/statsapi.StartAndEndDatesParams'
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
       produces:
       - application/json
       responses:
@@ -275,17 +276,19 @@ paths:
       tags:
       - revenue
   /network/revenue/paid/daily:
-    post:
+    get:
       consumes:
       - application/json
       description: Returns MPLX paid by users to the gateway in a requested timeframe
       parameters:
-      - description: Start and end dates
-        in: body
-        name: request_body
-        required: true
-        schema:
-          $ref: '#/definitions/statsapi.StartAndEndDatesParams'
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
       produces:
       - application/json
       responses:

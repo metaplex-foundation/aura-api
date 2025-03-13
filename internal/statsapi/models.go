@@ -2,7 +2,6 @@ package statsapi
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
@@ -66,29 +65,32 @@ type (
 	}
 )
 
-type (
-	StartAndEndDatesParams struct {
-		StartDay Date `json:"start_day"`
-		EndDay   Date `json:"end_day"`
-	}
+const (
+	StartDayParam = "start_day"
+	EntDayParam   = "end_day"
 )
 
-type Date struct {
-	time.Time
-}
-
-func (ct *Date) UnmarshalJSON(b []byte) error {
-	s := strings.Trim(string(b), "\"")
-	t, err := time.Parse("2006-01-02", s)
+func ExtractDatesFromQuery(c echo.Context) (startDay, endDay time.Time, err error) {
+	startDay, err = time.Parse("2006-01-02", c.QueryParam(StartDayParam))
 	if err != nil {
-		return err
+		return time.Time{}, time.Time{}, err
 	}
-	ct.Time = t
-	return nil
+
+	endDay, err = time.Parse("2006-01-02", c.QueryParam(EntDayParam))
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+
+	err = ValidateDates(startDay, endDay)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+
+	return startDay, endDay, nil
 }
 
-func (p *StartAndEndDatesParams) Validate() error {
-	if p.StartDay.After(p.EndDay.Time) {
+func ValidateDates(startDate, endDate time.Time) error {
+	if startDate.After(endDate) {
 		return echo.NewHTTPError(http.StatusBadRequest, "Start day is greater then end day")
 	}
 

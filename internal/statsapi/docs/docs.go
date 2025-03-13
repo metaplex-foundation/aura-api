@@ -20,7 +20,7 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/metrics/requests/daily": {
-            "post": {
+            "get": {
                 "description": "Returns number of requests processed daily, data grouped by request type",
                 "consumes": [
                     "application/json"
@@ -34,13 +34,16 @@ const docTemplate = `{
                 "summary": "Get number of requests processed daily",
                 "parameters": [
                     {
-                        "description": "Start and end dates",
-                        "name": "request_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
-                        }
+                        "type": "string",
+                        "description": "Start day. Example 2024-12-23",
+                        "name": "start_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End day. Example 2024-12-25",
+                        "name": "end_day",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -66,7 +69,7 @@ const docTemplate = `{
             }
         },
         "/metrics/users/daily": {
-            "post": {
+            "get": {
                 "description": "Returns number of gateway users",
                 "consumes": [
                     "application/json"
@@ -80,13 +83,16 @@ const docTemplate = `{
                 "summary": "Get number of gateway users",
                 "parameters": [
                     {
-                        "description": "Start and end dates",
-                        "name": "request_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
-                        }
+                        "type": "string",
+                        "description": "Start day. Example 2024-12-23",
+                        "name": "start_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End day. Example 2024-12-25",
+                        "name": "end_day",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -112,7 +118,7 @@ const docTemplate = `{
             }
         },
         "/network/revenue/distributed/daily": {
-            "post": {
+            "get": {
                 "description": "Returns MPLX paid to the DAS providers in a requested timeframe",
                 "consumes": [
                     "application/json"
@@ -126,13 +132,16 @@ const docTemplate = `{
                 "summary": "Get MPLX paid to the providers in a timeframe",
                 "parameters": [
                     {
-                        "description": "Start and end dates",
-                        "name": "request_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
-                        }
+                        "type": "string",
+                        "description": "Start day. Example 2024-12-23",
+                        "name": "start_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End day. Example 2024-12-25",
+                        "name": "end_day",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -190,7 +199,7 @@ const docTemplate = `{
             }
         },
         "/network/revenue/earned/daily": {
-            "post": {
+            "get": {
                 "description": "Returns MPLX earned by DAS providers in a requested timeframe",
                 "consumes": [
                     "application/json"
@@ -204,13 +213,16 @@ const docTemplate = `{
                 "summary": "Get MPLX earned by providers in a timeframe",
                 "parameters": [
                     {
-                        "description": "Start and end dates",
-                        "name": "request_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
-                        }
+                        "type": "string",
+                        "description": "Start day. Example 2024-12-23",
+                        "name": "start_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End day. Example 2024-12-25",
+                        "name": "end_day",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -268,7 +280,7 @@ const docTemplate = `{
             }
         },
         "/network/revenue/paid/daily": {
-            "post": {
+            "get": {
                 "description": "Returns MPLX paid by users to the gateway in a requested timeframe",
                 "consumes": [
                     "application/json"
@@ -282,13 +294,16 @@ const docTemplate = `{
                 "summary": "Get MPLX revenue in a timeframe",
                 "parameters": [
                     {
-                        "description": "Start and end dates",
-                        "name": "request_body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/statsapi.StartAndEndDatesParams"
-                        }
+                        "type": "string",
+                        "description": "Start day. Example 2024-12-23",
+                        "name": "start_day",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End day. Example 2024-12-25",
+                        "name": "end_day",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -492,17 +507,6 @@ const docTemplate = `{
                             }
                         }
                     }
-                }
-            }
-        },
-        "statsapi.StartAndEndDatesParams": {
-            "type": "object",
-            "properties": {
-                "end_day": {
-                    "type": "string"
-                },
-                "start_day": {
-                    "type": "string"
                 }
             }
         },
