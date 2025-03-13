@@ -156,7 +156,8 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		FROM users u
 		JOIN subscriptions cs ON u.sbs_id = cs.sbs_id
 		JOIN subscriptions ns ON ns.sbs_id = ?
-		WHERE u.usr_id = ?`
+		WHERE u.usr_id = ?
+		FOR UPDATE SKIP LOCKED`
 
 	if _, err = tx.db.QueryOneContext(
 		ctx,
@@ -202,10 +203,10 @@ func (s *Storage) DowngradeCurrentSubscription(ctx context.Context, userID, next
 		SELECT 
 			(SELECT COUNT(*) 
 			 FROM  user_api_keys 
-			 WHERE usr_id = ? AND deprecated = false AND uak_deleted_at IS NULL) AS active_keys_count,
+			 WHERE usr_id = ? AND deprecated = false AND uak_deleted_at IS NULL FOR UPDATE) AS active_keys_count,
 			(SELECT sbs_tokens_limit 
 			 FROM subscriptions 
-			 WHERE sbs_id = ?) AS allowed_keys_limit;`
+			 WHERE sbs_id = ? FOR UPDATE) AS allowed_keys_limit;`
 	if _, err = tx.db.QueryOneContext(ctx, pg.Scan(&activeKeysCount, &allowedKeysLimit), countActiveKeysAndAllowedKeysLimitQuery, userID, currentSubscriptionId); err != nil {
 		return &customErrors.PgSelectError{Msg: fmt.Sprintf("Failed to count active keys and get allowed keys limit: %v", err)}
 	}
