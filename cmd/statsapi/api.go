@@ -5,8 +5,8 @@ import (
 	"flag"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/api"
 	"github.com/adm-metaex/aura-api/internal/config"
+	"github.com/adm-metaex/aura-api/internal/statsapi"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
@@ -34,38 +34,32 @@ func main() {
 	f := getFlags()
 	err := log.Setup(f.logLevel)
 	if err != nil {
-		log.Logger.API.Fatalf("Log setup: %s", err)
+		log.Logger.StatsAPI.Fatalf("Log setup: %s", err)
 	}
 
-	cfg, err := configtypes.LoadFile[config.Config](f.envFile)
+	cfg, err := configtypes.LoadFile[config.StatsAPIConfig](f.envFile)
 	if err != nil {
-		log.Logger.API.Fatalf("Config: %s", err)
+		log.Logger.StatsAPI.Fatalf("Config: %s", err)
 	}
 
-	log.Logger.API.Infof("Start service")
+	log.Logger.StatsAPI.Infof("Start service")
 
 	mainCtx, cancelFn := context.WithCancel(context.Background())
-	app, err := api.NewAPI(mainCtx, cfg)
+	app, err := statsapi.NewAPI(mainCtx, cfg)
 	if err != nil {
-		log.Logger.API.Fatalf("NewAPI: %s", err)
+		log.Logger.StatsAPI.Fatalf("NewAPI: %s", err)
 	}
 
 	// API
 	go func() {
 		if err := app.Run(); err != nil {
-			log.Logger.API.Fatalf("Run: %s", err)
-		}
-	}()
-	// GPRC
-	go func() {
-		if err = app.RunGRPC(); err != nil {
-			log.Logger.API.Fatalf("RunGRPC: %s", err)
+			log.Logger.StatsAPI.Fatalf("Run: %s", err)
 		}
 	}()
 	// API doc
 	go func() {
 		if err := app.RunAPIDoc(); err != nil {
-			log.Logger.API.Fatalf("RunAPIDoc: %s", err)
+			log.Logger.StatsAPI.Fatalf("RunAPIDoc: %s", err)
 		}
 	}()
 
@@ -73,7 +67,7 @@ func main() {
 	util.GracefulStop(app.WaitGroup(), waitTimeout, func() {
 		err = app.Stop()
 		if err != nil {
-			log.Logger.API.Error(err.Error())
+			log.Logger.StatsAPI.Error(err.Error())
 		}
 		cancelFn()
 	})

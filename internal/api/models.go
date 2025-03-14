@@ -17,8 +17,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
+	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 )
 
 const (

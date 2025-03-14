@@ -3,7 +3,15 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"time"
 )
+
+type RequestsByChainAndType struct {
+	Day         time.Time `json:"day"`
+	Chain       string    `json:"chain"`
+	RequestType string    `json:"request_type"`
+	Requests    int64     `json:"requests"`
+}
 
 func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecentData bool) error {
 	// TODO: use query builder
@@ -26,7 +34,7 @@ func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecent
 	    count(rpc_method) as total_req,
 	    is_mainnet
 	FROM aura.stats
-	WHERE day < toDate(now(), 'Etc/UTC') %s
+	WHERE day < toDate(now(), 'Etc/UTC') %s and status = 200
 	GROUP BY chain, request_type, is_mainnet, provider, rpc_method, rpc_request_data, day
     `, selectRecentDataCondition)
 	_, err := s.conn.ExecContext(ctx, query)
@@ -40,4 +48,39 @@ func (s *Storage) AggregateAnalysisData(ctx context.Context, aggregateOnlyRecent
 	}
 
 	return nil
+}
+
+func (s *Storage) GetDailyRequestsByChainAndType(ctx context.Context, startDate time.Time, endDate time.Time) (result []RequestsByChainAndType, err error) {
+	query := fmt.Sprintf(`
+		SELECT
+			day,
+			chain,
+			request_type,
+			SUM(total_req) AS requests
+		FROM
+			aura.aggregated_analysis_data
+		WHERE
+			day >= '%s'
+			AND day <= '%s'
+		GROUP BY
+			chain,
+			request_type,
+			day
+		ORDER BY day;
+	`, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+
+	rows, err := s.conn.Query(query)
+	if err != nil {
+		return result, fmt.Errorf("query: %s", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var entry RequestsByChainAndType
+		if err = rows.Scan(&entry.Day, &entry.Chain, &entry.RequestType, &entry.Requests); err != nil {
+			return nil, fmt.Errorf("scan: %s", err)
+		}
+		result = append(result, entry)
+	}
+	return result, nil
 }

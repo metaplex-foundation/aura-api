@@ -2,13 +2,39 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api/aura-api:v0.5.3
+    image: ghcr.io/adm-metaex/aura-api/aura-api:develop-f317aa0
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
     ports:
       - "${API_PORT}:${API_PORT}"
       - "${API_SWAGGER_PORT}:${API_SWAGGER_PORT}"
+    volumes:
+      - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
+      - ./ssl:/ssl
+    env_file:
+      - .env
+    environment:
+      HOST_HOSTNAME: "${HOST_HOSTNAME}"
+    command:
+      - -log=debug
+    logging:
+      options:
+        max-size: "1g"
+    networks:
+      - aura-gw
+    labels:
+      - aura-gw=healthy
+  aura-stats-api:
+    container_name: aura-stats-api
+    build:
+      context: .
+      dockerfile: Dockerfile.stats
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "${STATS_API_PORT}:${STATS_API_PORT}"
+      - "${STATS_API_SWAGGER_PORT}:${STATS_API_SWAGGER_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
       - ./ssl:/ssl

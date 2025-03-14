@@ -25,3 +25,24 @@ func (c Config) Validate() error { //nolint:gocritic
 
 	return nil
 }
+
+type StatsAPIConfig struct {
+	CH  configtypes.ClickhouseConfig
+	PG  configtypes.PostgresConfig
+	API configtypes.StatsAPIConfig
+}
+
+func (c StatsAPIConfig) Validate() error { //nolint:gocritic
+	// TODO
+	// if err := c.API.Validate(); err != nil {
+	// 	return fmt.Errorf("api: %s", err)
+	// }
+	if err := c.PG.Validate(); err != nil {
+		return fmt.Errorf("postgres: %s", err)
+	}
+	if err := c.CH.Validate(); err != nil {
+		return fmt.Errorf("clickhouse: %s", err)
+	}
+
+	return nil
+}

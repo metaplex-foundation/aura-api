@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 
-	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"

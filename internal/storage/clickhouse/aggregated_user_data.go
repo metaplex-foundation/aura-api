@@ -327,3 +327,17 @@ func (s *Storage) AggregateUserDataDaily(ctx context.Context, aggregateOnlyRecen
 
 	return nil
 }
+
+func (s *Storage) GetNumberOfActiveUsersForDay(ctx context.Context, day time.Time) (result int64, err error) {
+	query := fmt.Sprintf(`SELECT COUNT(DISTINCT user_uid) as count FROM aura.aggregated_user_daily_data where day = '%s';`, day.Format("2006-01-02"))
+
+	var count int64
+
+	row := s.conn.QueryRow(query)
+	err = row.Scan(&count)
+	if err != nil {
+		return result, fmt.Errorf("scan: %s", err)
+	}
+
+	return count, nil
+}
