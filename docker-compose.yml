@@ -2,7 +2,7 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api/aura-api:develop-22385cd
+    image: ghcr.io/adm-metaex/aura-api/aura-api:develop-8a5540b
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
@@ -25,7 +25,6 @@ services:
       - aura-gw
     labels:
       - aura-gw=healthy
-
   aura-stats-api:
     container_name: aura-stats-api
     build:
