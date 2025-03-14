@@ -77,7 +77,7 @@ func (s *Storage) GetTotalMPLXDistributed(ctx context.Context) (volume int64, er
 
 func (s *Storage) GetDailyMPLXDistributed(ctx context.Context, startDay, endDay time.Time) (result []DailyRewardsPaid, err error) {
 	if startDay.After(endDay) {
-		return result, fmt.Errorf("failed to get daily MPLX rewards distribution because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+		return result, fmt.Errorf("failed to get daily MPLX rewards distribution because start day cannot be gibber than end data: %v and %v", startDay, endDay)
 	}
 
 	query := `SELECT 
@@ -119,7 +119,7 @@ func (s *Storage) GetTotalRewardsEarned(ctx context.Context) (total int64, err e
 
 func (s *Storage) GetDailyEarnedRewards(ctx context.Context, startDay, endDay time.Time) (result []DailyEarnedRewards, err error) {
 	if startDay.After(endDay) {
-		return result, fmt.Errorf("failed to get daily MPLX earned rewards because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+		return result, fmt.Errorf("failed to get daily MPLX earned rewards because start day cannot be gibber than end data: %v and %v", startDay, endDay)
 	}
 
 	query := `SELECT SUM(prw_rewards) AS earned, prw_day as day FROM providers_rewards WHERE prw_day BETWEEN ? AND ? GROUP BY prw_day ORDER BY prw_day;`

@@ -276,7 +276,7 @@ func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot UsersSnapshot)
 
 func (s *Storage) GetDailyUserSnapshots(ctx context.Context, startDay time.Time, endDay time.Time) (result []UsersSnapshot, err error) {
 	if startDay.After(endDay) {
-		return result, fmt.Errorf("failed to get daily users snapshot because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+		return result, fmt.Errorf("failed to get daily users snapshot because start day cannot be gibber than end data: %v and %v", startDay, endDay)
 	}
 
 	query := `SELECT

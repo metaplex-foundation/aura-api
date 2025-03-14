@@ -210,7 +210,7 @@ func (s *Storage) GetTotalMPLXVolume(ctx context.Context) (int64, error) {
 
 func (s *Storage) GetDailyMPLXVolume(ctx context.Context, startDay time.Time, endDay time.Time) (result []DailyVolume, err error) {
 	if startDay.After(endDay) {
-		return result, fmt.Errorf("failed to get daily MPLX volume because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+		return result, fmt.Errorf("failed to get daily MPLX volume because start day cannot be gibber than end data: %v and %v", startDay, endDay)
 	}
 
 	query := `SELECT SUM(crp_mplx_amount) as volume, crp_paid_at::date as day FROM crypto_payments WHERE crp_status = 'paid' AND crp_paid_at::date BETWEEN ? AND ? GROUP BY crp_paid_at::date
