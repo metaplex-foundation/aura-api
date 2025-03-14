@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/api/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/api/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
+	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/rewards"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

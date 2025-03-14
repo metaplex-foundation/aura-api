@@ -30,6 +30,15 @@ type (
 		Total int64 `pg:"total_count" json:"total_count"`
 		CryptoPayment
 	}
+
+	Volume struct {
+		Volume int64 `pg:"volume"`
+	}
+
+	DailyVolume struct {
+		Volume int64     `pg:"volume" json:"volume"`
+		Day    time.Time `pg:"day" json:"day"`
+	}
 )
 
 const (
@@ -186,4 +195,30 @@ func (s *Storage) CancelUnpaidPayments(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) GetTotalMPLXVolume(ctx context.Context) (int64, error) {
+	query := `SELECT SUM(crp_mplx_amount) as volume FROM crypto_payments WHERE crp_status = 'paid';`
+	var result Volume
+	_, err := s.db.QueryOneContext(ctx, &result, query)
+	if err != nil {
+		return result.Volume, err
+	}
+
+	return result.Volume, nil
+}
+
+func (s *Storage) GetDailyMPLXVolume(ctx context.Context, startDay time.Time, endDay time.Time) (result []DailyVolume, err error) {
+	if startDay.After(endDay) {
+		return result, fmt.Errorf("failed to get daily MPLX volume because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+	}
+
+	query := `SELECT SUM(crp_mplx_amount) as volume, crp_paid_at::date as day FROM crypto_payments WHERE crp_status = 'paid' AND crp_paid_at::date BETWEEN ? AND ? GROUP BY crp_paid_at::date
+ORDER BY day;`
+	_, err = s.db.QueryContext(ctx, &result, query, startDay.Format("2006-01-02"), endDay.Format("2006-01-02"))
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
 }

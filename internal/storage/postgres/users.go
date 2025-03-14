@@ -33,6 +33,20 @@ type (
 		APIKeys            []string   `pg:"api_keys"`
 	}
 
+	UserCountByPlan struct {
+		SubscriptionId int8  `pg:"subscription"`
+		Count          int64 `pg:"users_count"`
+	}
+
+	UsersSnapshot struct {
+		Day                   time.Time `pg:"urs_day" json:"day"`
+		ProSubscriptions      int64     `pg:"urs_pro_subscriptions" json:"pro_subscriptions"`
+		AdvancedSubscriptions int64     `pg:"urs_advanced_subscriptions" json:"advanced_subscriptions"`
+		PayAsYouGo            int64     `pg:"urs_pay_as_you_go" json:"pay_as_you_go"`
+		ActiveUsers           int64     `pg:"urs_active_users" json:"active_users"`
+		TotalUsers            int64     `pg:"urs_total_users" json:"total_users"`
+	}
+
 	Count struct {
 		Count int64
 	}
@@ -226,4 +240,63 @@ func (s *Storage) GetCountOfSubscriptionUsersByDay(ctx context.Context, subscrip
 	}
 
 	return result.Count, nil
+}
+
+func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []UserCountByPlan, err error) {
+	query := `SELECT
+				sbs_id as subscription,
+				COUNT(*) as users_count
+			FROM
+				users
+			WHERE
+				usr_created_at::date < CURRENT_DATE
+				AND (usr_last_updated_plan_at < CURRENT_DATE OR usr_last_updated_plan_at IS NULL)
+				AND (usr_sbs_ends_on::date >= (CURRENT_DATE - INTERVAL '1 day') OR usr_sbs_ends_on IS NULL)
+			GROUP BY
+				subscription;`
+
+	_, err = s.db.QueryContext(ctx, &result, query)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot UsersSnapshot) (err error) {
+	query := `INSERT INTO users_snapshot (urs_day, urs_pro_subscriptions, urs_advanced_subscriptions, urs_pay_as_you_go, urs_active_users, urs_total_users)
+			VALUES (?,?,?,?,?,?);`
+	_, err = s.db.ExecContext(ctx, query, snapshot.Day, snapshot.ProSubscriptions, snapshot.AdvancedSubscriptions, snapshot.PayAsYouGo, snapshot.ActiveUsers, snapshot.TotalUsers)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Storage) GetDailyUserSnapshots(ctx context.Context, startDay time.Time, endDay time.Time) (result []UsersSnapshot, err error) {
+	if startDay.After(endDay) {
+		return result, fmt.Errorf("failed to get daily users snapshot because start day cannot be gibber than end data: %w and %w", startDay, endDay)
+	}
+
+	query := `SELECT
+				urs_day,
+				urs_pro_subscriptions,
+				urs_advanced_subscriptions,
+				urs_pay_as_you_go,
+				urs_active_users,
+				urs_total_users
+			FROM
+				users_snapshot
+			WHERE
+				urs_day BETWEEN ? AND ?
+			ORDER BY
+				urs_day;`
+
+	_, err = s.db.QueryContext(ctx, &result, query, startDay.Truncate(24*time.Hour), endDay.Truncate(24*time.Hour))
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
 }

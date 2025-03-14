@@ -1,0 +1,358 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  statsapi.DailyRequestsResponse:
+    properties:
+      daily_requests:
+        items:
+          properties:
+            chain:
+              type: string
+            day:
+              type: string
+            request_type:
+              type: string
+            requests:
+              type: integer
+          type: object
+        type: array
+    type: object
+  statsapi.DailyRewardsEarnedResponse:
+    properties:
+      daily_rewards_earned:
+        items:
+          properties:
+            day:
+              type: string
+            earned:
+              type: integer
+          type: object
+        type: array
+    type: object
+  statsapi.DailyUsersSnapshotResponse:
+    properties:
+      daily_users_snapshot:
+        items:
+          properties:
+            active_users:
+              type: integer
+            advanced_subscriptions:
+              type: integer
+            day:
+              type: string
+            pay_as_you_go:
+              type: integer
+            pro_subscriptions:
+              type: integer
+            total_users:
+              type: integer
+          type: object
+        type: array
+    type: object
+  statsapi.DistributedMPLXDailyResponse:
+    properties:
+      distributed_daily:
+        items:
+          properties:
+            day:
+              type: string
+            paid:
+              type: integer
+            provider:
+              type: string
+          type: object
+        type: array
+    type: object
+  statsapi.PaidMPLXDailyResponse:
+    properties:
+      paid_daily:
+        items:
+          properties:
+            day:
+              type: string
+            volume:
+              type: integer
+          type: object
+        type: array
+    type: object
+  statsapi.TotalDistributedMPLXResponse:
+    properties:
+      distributed_total:
+        type: integer
+    type: object
+  statsapi.TotalPaidMPLXResponse:
+    properties:
+      paid_total:
+        type: integer
+    type: object
+  statsapi.TotalRewardsEarnedResponse:
+    properties:
+      total_earned:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: Swagger API server for Aura Stats API.
+  termsOfService: http://swagger.io/terms/
+  title: Swagger Aura
+  version: 0.0.3
+paths:
+  /metrics/requests/daily:
+    get:
+      consumes:
+      - application/json
+      description: Returns number of requests processed daily, data grouped by request
+        type
+      parameters:
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.DailyRequestsResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get number of requests processed daily
+      tags:
+      - metrics
+  /metrics/users/daily:
+    get:
+      consumes:
+      - application/json
+      description: Returns number of gateway users
+      parameters:
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.DailyUsersSnapshotResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get number of gateway users
+      tags:
+      - metrics
+  /network/revenue/distributed/daily:
+    get:
+      consumes:
+      - application/json
+      description: Returns MPLX paid to the DAS providers in a requested timeframe
+      parameters:
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.DistributedMPLXDailyResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get MPLX paid to the providers in a timeframe
+      tags:
+      - revenue
+  /network/revenue/distributed/total:
+    get:
+      description: Returns total amount of MPLX paid to DAS providers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.TotalDistributedMPLXResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get total MPLX paid to the providers
+      tags:
+      - revenue
+  /network/revenue/earned/daily:
+    get:
+      consumes:
+      - application/json
+      description: Returns MPLX earned by DAS providers in a requested timeframe
+      parameters:
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.DailyRewardsEarnedResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get MPLX earned by providers in a timeframe
+      tags:
+      - revenue
+  /network/revenue/earned/total:
+    get:
+      description: Returns total amount of MPLX earned by DAS providers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.TotalRewardsEarnedResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get total MPLX earned by providers
+      tags:
+      - revenue
+  /network/revenue/paid/daily:
+    get:
+      consumes:
+      - application/json
+      description: Returns MPLX paid by users to the gateway in a requested timeframe
+      parameters:
+      - description: Start day. Example 2024-12-23
+        in: query
+        name: start_day
+        type: string
+      - description: End day. Example 2024-12-25
+        in: query
+        name: end_day
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.PaidMPLXDailyResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get MPLX revenue in a timeframe
+      tags:
+      - revenue
+  /network/revenue/paid/total:
+    get:
+      description: Returns total amount of MPLX paid by users to the gateway
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/statsapi.TotalPaidMPLXResponse'
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Get total MPLX revenue
+      tags:
+      - revenue
+  /ping:
+    get:
+      description: Endpoint is used to check if API is alive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Live check
+      tags:
+      - ping
+schemes:
+- http
+- https
+swagger: "2.0"
