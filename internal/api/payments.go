@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/memo"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/go-co-op/gocron"
 	"github.com/go-pg/pg/v10"
 	"github.com/mr-tron/base58"
 	"github.com/shopspring/decimal"
@@ -45,7 +46,7 @@ type paymentsWatcher struct {
 func newPaymentsWatcher(rpcAddress string, pgStorage *postgres.Storage, paymentRecipient solana.PublicKey) (p paymentsWatcher, err error) {
 	paymentRecipientAssociatedTokenAddress, _, err := solana.FindAssociatedTokenAddress(paymentRecipient, metaplexToken)
 	if err != nil {
-		return p, fmt.Errorf("FindAssociatedTokenAddress: %s", err)
+		return p, fmt.Errorf("FindAssociatedTokenAddress: %w", err)
 	}
 	return paymentsWatcher{
 		rpcClient:                              rpc.New(rpcAddress),
@@ -74,7 +75,7 @@ func (p *paymentsWatcher) generateSolanaPayPaymentLink(ctx context.Context, amou
 	u.RawQuery = q.Encode()
 	amountConverted, err := decimal.NewFromString(amount)
 	if err != nil {
-		return "", fmt.Errorf("NewFromString: %s", err)
+		return "", fmt.Errorf("NewFromString: %w", err)
 	}
 	err = p.pgStorage.CreateUnconfirmedPayment(ctx, memoKey.PublicKey(), userID, amountConverted.Truncate(metaplexTokenDecimals).Mul(metaplexTokenDecimalsMultiplier).Floor().BigInt().Int64())
 	if err != nil {
@@ -131,11 +132,26 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 	}
 }
 
+func (p *paymentsWatcher) renewExpiredPaymentPlans(ctx context.Context) {
+	cron := gocron.NewScheduler(time.UTC)
+	_, err := cron.Every(1).Day().At("00:00").Do(func() {
+		err := p.pgStorage.RenewExpiredPaymentPlans(ctx)
+		if err != nil {
+			log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
+		}
+	})
+	if err != nil {
+		log.Logger.Collector.Fatalf("cron: %s", err)
+	}
+
+	cron.StartAsync()
+}
+
 // TODO: consider user reusing reference in multiple txs
 func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 	allNewSignatures, err := p.fetchNewTransactionSignatures(ctx)
 	if err != nil {
-		return fmt.Errorf("fetchNewTransactionSignatures: %s", err)
+		return fmt.Errorf("fetchNewTransactionSignatures: %w", err)
 	}
 
 	for _, sig := range allNewSignatures {
@@ -208,7 +224,7 @@ func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Sig
 	})
 	if err != nil {
 		// Node error. Need to retry later
-		return transfer, fmt.Errorf("GetTransaction %s: %s", sig, err)
+		return transfer, fmt.Errorf("GetTransaction %s: %w", sig, err)
 	}
 	if txResp == nil || txResp.Transaction == nil {
 		// Cannot fetch transaction from node. Maybe need to retry later
@@ -217,7 +233,7 @@ func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Sig
 	transfer, err = p.parseTransaction(*txResp)
 	if err != nil {
 		// Error while parsing tx. Maybe the wrong tx format returned. Need to retry
-		return transfer, fmt.Errorf("parseTransaction: %s", err)
+		return transfer, fmt.Errorf("parseTransaction: %w", err)
 	}
 
 	return transfer, nil
@@ -229,7 +245,7 @@ func (p *paymentsWatcher) processTransaction(ctx context.Context, sig solana.Sig
 func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (result postgres.TransferInfo, err error) {
 	parsedTx, err := txResp.Transaction.GetTransaction()
 	if err != nil {
-		return result, fmt.Errorf("GetTransaction: %s", err)
+		return result, fmt.Errorf("GetTransaction: %w", err)
 	}
 	if len(parsedTx.Signatures) == 0 {
 		return result, fmt.Errorf("empty signature")
@@ -240,7 +256,7 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 	for _, inst := range parsedTx.Message.Instructions {
 		accounts, err := inst.ResolveInstructionAccounts(&parsedTx.Message)
 		if err != nil {
-			return result, fmt.Errorf("ResolveInstructionAccounts: %s", err)
+			return result, fmt.Errorf("ResolveInstructionAccounts: %w", err)
 		}
 
 		if int(inst.ProgramIDIndex) < len(parsedTx.Message.AccountKeys) {
@@ -251,7 +267,7 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 				{
 					amount, err := p.getTransferredAmount(accounts, inst.Data, parsedTx)
 					if err != nil {
-						return result, fmt.Errorf("getTransferredAmount: %s", err)
+						return result, fmt.Errorf("getTransferredAmount: %w", err)
 					}
 					result.Amount = amount
 
@@ -271,7 +287,7 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 				{
 					memo, err := p.getMemoFromMemoInstr(inst.Data)
 					if err != nil {
-						return result, fmt.Errorf("getMemoFromMemoInstr: %s", err)
+						return result, fmt.Errorf("getMemoFromMemoInstr: %w", err)
 					}
 					// make sure memo is valid and saved in DB as 'unpaid'
 					if _, ok := p.unpaidMemos[memo.String()]; ok {
@@ -299,11 +315,11 @@ func (p *paymentsWatcher) parseTransaction(txResp rpc.GetTransactionResult) (res
 func (p *paymentsWatcher) getMemoFromMemoInstr(instrData solana.Base58) (memo solana.PublicKey, err error) {
 	decoded, err := base58.Decode(instrData.String())
 	if err != nil {
-		return memo, fmt.Errorf("could not decode memo instruction data from base58: %s", err)
+		return memo, fmt.Errorf("could not decode memo instruction data from base58: %w", err)
 	}
 	memo, err = solana.PublicKeyFromBase58(string(decoded))
 	if err != nil {
-		return memo, fmt.Errorf("getMemoFromMemoInstr: %s", err)
+		return memo, fmt.Errorf("getMemoFromMemoInstr: %w", err)
 	}
 
 	return memo, nil
@@ -313,7 +329,7 @@ func (p *paymentsWatcher) getMemoFromMemoInstr(instrData solana.Base58) (memo so
 func (p *paymentsWatcher) getTransferredAmount(accounts []*solana.AccountMeta, instrData []byte, parsedTx *solana.Transaction) (amount int64, err error) {
 	tokenInst, err := token.DecodeInstruction(accounts, instrData)
 	if err != nil {
-		return amount, fmt.Errorf("DecodeInstruction: %s", err)
+		return amount, fmt.Errorf("DecodeInstruction: %w", err)
 	}
 
 	switch spec := tokenInst.Impl.(type) {

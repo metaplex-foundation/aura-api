@@ -35,3 +35,70 @@ var (
 var ErrBadStatusCode = errors.New("bad status code")
 
 var ErrTokenInvalid = echo.NewHTTPError(http.StatusUnauthorized, "invalid api token")
+
+func ToHTTPError(err error) *echo.HTTPError {
+	if err == nil {
+		return nil
+	}
+
+	switch err.(type) {
+	case *SubscriptionUpdatedTooOftenError:
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	case *PgTransactionError:
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	case *PgSelectError:
+		return echo.NewHTTPError(http.StatusNotFound)
+	case *PgInsertError:
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	case *PgUpdateError:
+		return echo.NewHTTPError(http.StatusInternalServerError)
+	case *UpgradeSubscriptionError:
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	case *DowngradeSubscriptionError:
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	default:
+		return echo.NewHTTPError(http.StatusInternalServerError, "unexpected error")
+	}
+}
+
+type SubscriptionUpdatedTooOftenError struct{}
+
+func (e *SubscriptionUpdatedTooOftenError) Error() string {
+	return "cannot update the subscription plan more than once a day"
+}
+
+type PgTransactionError struct{ Msg string }
+
+func (te *PgTransactionError) Error() string {
+	return te.Msg
+}
+
+type PgSelectError struct{ Msg string }
+
+func (sne *PgSelectError) Error() string {
+	return sne.Msg
+}
+
+type PgInsertError struct{ Msg string }
+
+func (pie *PgInsertError) Error() string {
+	return pie.Msg
+}
+
+type PgUpdateError struct{ Msg string }
+
+func (pue *PgUpdateError) Error() string {
+	return pue.Msg
+}
+
+type UpgradeSubscriptionError struct{ Msg string }
+
+func (use *UpgradeSubscriptionError) Error() string {
+	return use.Msg
+}
+
+type DowngradeSubscriptionError struct{ Msg string }
+
+func (dse *DowngradeSubscriptionError) Error() string {
+	return dse.Msg
+}

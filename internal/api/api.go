@@ -228,6 +228,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 		go paymentWatcher.watchPayments(mainCtx)
 		go paymentWatcher.cancelUnpaidPayments(mainCtx)
+		go paymentWatcher.renewExpiredPaymentPlans(mainCtx)
 	}
 
 	return a, nil
@@ -274,7 +275,9 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	authMW := authMiddleware.LoadUser()
 	protectedGroup := a.router.Group("", authMW)
 	protectedGroup.GET("/user", a.getUserHandler)
-	protectedGroup.PATCH("/plan", a.updateSubscriptionPlan)
+	protectedGroup.PATCH("/plan/upgrade", a.upgradeSubscriptionPlan)
+	protectedGroup.PATCH("/plan/downgrade", a.downgradeSubscriptionPlan)
+	protectedGroup.PATCH("/plan/undo_downgrading", a.undoSubscriptionPlanDowngrading)
 	// API keys
 	apiKeysGroup := protectedGroup.Group("/keys")
 	apiKeysGroup.GET("", a.apiKeysHandler)
