@@ -545,7 +545,7 @@ func (a *api) downgradeSubscriptionPlan(c echo.Context) (err error) {
 	}
 
 	if err = a.pgStorage.DowngradeCurrentSubscription(c.Request().Context(), u.ID, params.SubscriptionID); err != nil {
-		log.Logger.API.Errorf("cancelSubscriptionPlan: CancelCurrentSubscription: %s", err)
+		log.Logger.API.Errorf("downgradeSubscriptionPlan: DowngradeCurrentSubscription: %s", err)
 		return util.ToHTTPError(err)
 	}
 
