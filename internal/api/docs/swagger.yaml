@@ -26,6 +26,8 @@ definitions:
         type: string
       signature:
         type: string
+      status:
+        type: string
     type: object
   api.PaymentStatusHistoryResponse:
     properties:
@@ -43,21 +45,27 @@ definitions:
     type: object
   api.Pricing:
     properties:
-      aura_das:
-        $ref: '#/definitions/api.UIPricing'
       eclipse_das:
+        $ref: '#/definitions/api.UIPricing'
+      eclipse_get_program_accounts:
         $ref: '#/definitions/api.UIPricing'
       eclipse_rpc:
         $ref: '#/definitions/api.UIPricing'
-      get_program_accounts:
+      eclipse_swqos:
+        $ref: '#/definitions/api.UIPricing'
+      eclipse_websocket:
         $ref: '#/definitions/api.UIPricing'
       monthly_price_mplx:
         type: integer
+      solana_das:
+        $ref: '#/definitions/api.UIPricing'
+      solana_get_program_accounts:
+        $ref: '#/definitions/api.UIPricing'
       solana_rpc:
         $ref: '#/definitions/api.UIPricing'
       solana_swqos:
         $ref: '#/definitions/api.UIPricing'
-      websocket:
+      solana_websocket:
         $ref: '#/definitions/api.UIPricing'
     type: object
   api.SubscriptionWithPricing:
@@ -110,6 +118,8 @@ definitions:
         type: string
       mplx_balance:
         type: integer
+      next_subscription:
+        $ref: '#/definitions/api.SubscriptionWithPricing'
       subscription:
         $ref: '#/definitions/api.SubscriptionWithPricing'
       subscription_ends_on:
@@ -479,7 +489,61 @@ paths:
       summary: Get payment status
       tags:
       - payment
-  /plan:
+  /plan/downgrade:
+    patch:
+      description: Downgrade subscription plan
+      parameters:
+      - description: Subscription ID to which the current plan will be changed at
+          the end of the subscription period
+        in: body
+        name: request_body
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateSubscriptionParams'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription was changed successfully. Return empty string
+          schema:
+            type: string
+        "400":
+          description: Cannot switch to the selected subscription.
+          schema: {}
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Downgrade subscription plan
+      tags:
+      - users
+  /plan/undo_downgrading:
+    patch:
+      description: Undo downgrading of a subscription plan
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Subscription cancellation has been undone successfully. Return
+            empty string
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      security:
+      - ApiKeyAuth: []
+      summary: Undo downgrading of a subscription plan
+      tags:
+      - users
+  /plan/upgrade:
     patch:
       description: Get subscriptions plan info
       parameters:
