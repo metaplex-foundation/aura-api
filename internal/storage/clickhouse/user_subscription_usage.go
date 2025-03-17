@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -255,6 +256,11 @@ func processCreditsUsageData(usageData []CreditsUsageWithReqType) []CreditsUsage
 	for _, v := range creditsMap {
 		result = append(result, v)
 	}
+
+	// Sort by timestamp to ensure consistent order
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Timestamp.Before(result[j].Timestamp)
+	})
 
 	standardNetworks := []string{"solana", "eclipse", "getProgramAccounts", "solana-das", "eclipse-das"}
 	for i := range result {
