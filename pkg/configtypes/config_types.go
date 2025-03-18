@@ -67,7 +67,6 @@ type (
 		EclipseSWQOS              PricingModel `json:"eclipse_swqos"`
 		SolanaWebsocket           PricingModel `json:"solana_websocket"`
 		EclipseWebsocket          PricingModel `json:"eclipse_websocket"`
-		APITokensLimit            uint64       `json:"api_tokens_limit"`
 		MonthlyPriceMPLX          *int64       `json:"monthly_price_mplx"`
 		PrioritySupport           bool         `json:"priority_support"`
 	}

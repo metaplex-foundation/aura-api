@@ -2,7 +2,7 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api/aura-api:develop-53d5bc2
+    image: ghcr.io/adm-metaex/aura-api/aura-api:feature-drop-token-limit-b593cf4
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
