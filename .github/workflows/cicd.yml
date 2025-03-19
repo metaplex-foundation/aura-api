@@ -20,6 +20,11 @@ concurrency:
 
 jobs:
   ci:
+    strategy:
+      fail-fast: true
+      matrix:
+        binary: [api, statsapi]
+
     name: Continuous Integration
     if: >
       (github.event_name == 'push' && (
@@ -42,7 +47,7 @@ jobs:
       - name: Define Application Variables
         id: define_vars
         run: |
-          echo "APP=$(basename -s .git $(git remote get-url origin))" >> $GITHUB_ENV
+          echo "APP=aura-${{ matrix.binary }}" >> $GITHUB_ENV
           ver=$(
             [[ "$GITHUB_REF" == refs/tags/* ]] && \
               echo "${GITHUB_REF#refs/tags/}" || \
@@ -90,11 +95,52 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Docker Image
-        env:
-          REGISTRY: ghcr.io/${{ github.repository_owner }}
-          VERSION: ${{ env.VERSION }}
-        run: make image push VERSION="$VERSION"
+      # - name: Build and Push Docker Image
+      #   env:
+      #     REGISTRY: ghcr.io/${{ github.repository_owner }}
+      #     VERSION: ${{ env.VERSION }}
+      #   run: make image push VERSION="$VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Docker metadata for tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: meta_tag
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/aura-${{ matrix.binary }}
+          tags: |
+            type=semver,pattern=v{{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker metadata for branch
+        if: startsWith(github.ref, 'refs/heads/')
+        id: meta_branch
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/aura-${{ matrix.binary }}
+          tags: |
+            type=sha,event=branch,prefix={{branch}}-
+            type=raw,event=branch,value={{branch}}-latest
+
+      - name: Build & Push Docker Images
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ startsWith(github.ref, 'refs/tags/') && steps.meta_tag.outputs.tags || steps.meta_branch.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BINARY=${{ matrix.binary }}
+            TARGETARCH=amd64
+            TARGETOS=linux
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Notify Build Complete
         if: success()
@@ -149,7 +195,7 @@ jobs:
           message: "✅ YAML validation passed for <b>${{ env.APP }}</b> version <b>${{ env.VERSION }}</b>"
           telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
-  
+
       - name: Notify Validation Failed
         if: failure()
         uses: ./.github/actions/telegram
@@ -161,7 +207,9 @@ jobs:
       - name: Update Docker Compose Image Tag
         uses: mikefarah/yq@master
         with:
-          cmd: yq eval -i '.services[env(APP)].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/" + env(APP) + "/" + env(APP) + ":" + env(VERSION)' docker-compose.yml
+          cmd: |
+            yq eval -i '.services["aura-api"].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/aura-api:" + env(VERSION)' docker-compose.yml
+            yq eval -i '.services["aura-stats-api"].image = "ghcr.io/" + env(GITHUB_REPOSITORY_OWNER) + "/aura-statsapi:" + env(VERSION)' docker-compose.yml
 
       - name: Notify Image Tag Updated
         if: success()
@@ -184,7 +232,7 @@ jobs:
             echo "Branch build detected. Pushing current branch."
             git push
           fi
-          
+
       - name: Checkout External Config Repository
         uses: actions/checkout@v4
         with:
@@ -216,4 +264,3 @@ jobs:
           -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
           -d parse_mode=HTML \
           -d text="❌ CD failed. Triggered by <b>${{ github.actor }}</b> version <b>${{ env.VERSION }}</b>"
-  

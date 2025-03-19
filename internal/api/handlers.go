@@ -445,6 +445,11 @@ func (a *api) getAPICreditsUsage(c echo.Context) (err error) {
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
 
+	// Do not return empty array to the FE
+	if len(creditsUsageHistory) == 0 {
+		creditsUsageHistory = nil
+	}
+
 	return c.JSON(http.StatusOK, creditsUsageHistory)
 }
 

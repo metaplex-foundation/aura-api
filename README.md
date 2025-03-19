@@ -101,7 +101,6 @@ File example:
             "requests_per_second": 0,
             "price_usd": 0
         },
-        "api_tokens_limit": 2,
         "monthly_price_mplx": null,
         "priority_support": false
     },
@@ -146,7 +145,6 @@ File example:
             "requests_per_second": 10,
             "price_usd": 0.0000048
         },
-        "api_tokens_limit": 5,
         "monthly_price_mplx": null,
         "priority_support": false
     },
@@ -191,7 +189,6 @@ File example:
             "requests_per_second": 0,
             "price_usd": 0
         },
-        "api_tokens_limit": 20,
         "monthly_price_mplx": 500000000,
         "priority_support": true
     },
@@ -236,7 +233,6 @@ File example:
             "requests_per_second": 20,
             "price_usd": 0
         },
-        "api_tokens_limit": 20,
         "monthly_price_mplx": 1500000000,
         "priority_support": true
     }
@@ -288,7 +284,6 @@ File example:
         "requests_per_second": 10,
         "price_usd": 0.0000048
     },
-    "api_tokens_limit": 5,
     "monthly_price_mplx": null,
     "priority_support": false
 }
