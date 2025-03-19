@@ -8,6 +8,7 @@ import (
 	"github.com/go-co-op/gocron"
 
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
 
@@ -25,7 +26,10 @@ func (s *Storage) RunStatsAggregator(ctx context.Context) {
 			log.Logger.Collector.Errorf("aggregateStatsData: %s", err)
 		}
 
-		log.Logger.Collector.Debugf("aggregateStatsData: time elapsed %s", time.Since(timeNow))
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("StatsAggregator", duration)
+		log.Logger.Collector.Debugf("aggregateStatsData: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)

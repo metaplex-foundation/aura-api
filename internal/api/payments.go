@@ -18,6 +18,7 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 )
 
 var metaplexToken = solana.MustPublicKeyFromBase58("METAewgxyPbgwsseH8T16a39CQ5VyVxZi9zXiDPY18m")
@@ -102,6 +103,8 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			timeNow := time.Now()
+
 			unpaidMemos, err := p.pgStorage.FetchAllUnpaidMemos(ctx)
 			if err != nil && !errors.Is(err, pg.ErrNoRows) {
 				log.Logger.API.Errorf("watchPayments: FetchAllUnpaidMemos: %s", err)
@@ -112,6 +115,10 @@ func (p *paymentsWatcher) watchPayments(ctx context.Context) {
 			if err != nil {
 				log.Logger.API.Errorf("watchPayments: processNewTransfers: %s", err)
 			}
+
+			duration := time.Since(timeNow)
+
+			metrics.ObserveBackgroundWorkerExecutionTime("PaymentsWatcher", duration)
 		}
 	}
 }
@@ -124,10 +131,16 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			timeNow := time.Now()
+
 			err := p.pgStorage.CancelUnpaidPayments(ctx)
 			if err != nil {
 				log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 			}
+
+			duration := time.Since(timeNow)
+
+			metrics.ObserveBackgroundWorkerExecutionTime("CancelUnpaidPayments", duration)
 		}
 	}
 }
@@ -135,10 +148,16 @@ func (p *paymentsWatcher) cancelUnpaidPayments(ctx context.Context) {
 func (p *paymentsWatcher) renewExpiredPaymentPlans(ctx context.Context) {
 	cron := gocron.NewScheduler(time.UTC)
 	_, err := cron.Every(1).Day().At("00:00").Do(func() {
+		timeNow := time.Now()
+
 		err := p.pgStorage.RenewExpiredPaymentPlans(ctx)
 		if err != nil {
 			log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 		}
+
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("RenewExpiredPayments", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)
@@ -164,6 +183,7 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 			}
 
 			p.lastProcessedSignature = sig
+			metrics.IncCryptoPaymentsProcessedTotalCnt("failed")
 			continue
 		}
 		err = p.pgStorage.UpdatePayments(ctx, []postgres.TransferInfo{transfer})
@@ -177,6 +197,8 @@ func (p *paymentsWatcher) processNewTransfers(ctx context.Context) (err error) {
 		}
 
 		p.lastProcessedSignature = sig
+
+		metrics.IncCryptoPaymentsProcessedTotalCnt("successful")
 
 		// prevent rate-limit errors
 		time.Sleep(250 * time.Millisecond)

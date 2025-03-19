@@ -13,6 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	consulAPI "github.com/hashicorp/consul/api"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/patrickmn/go-cache"
@@ -33,6 +34,7 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/dynamic"
 	"github.com/adm-metaex/aura-api/pkg/email"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/proto"
 	"github.com/adm-metaex/aura-api/pkg/rewards"
 	"github.com/adm-metaex/aura-api/pkg/stats"
@@ -40,13 +42,14 @@ import (
 )
 
 type api struct { //nolint:govet // aligned to 176 bytes
-	conf         configtypes.APIConfig
-	certData     []byte
-	router       *echo.Echo
-	routerAPIDoc *echo.Echo
-	waitGroup    *sync.WaitGroup
-	ctx          context.Context
-	ctxCancel    context.CancelFunc
+	conf          configtypes.APIConfig
+	certData      []byte
+	router        *echo.Echo
+	routerAPIDoc  *echo.Echo
+	metricsServer *echo.Echo
+	waitGroup     *sync.WaitGroup
+	ctx           context.Context
+	ctxCancel     context.CancelFunc
 
 	pgStorage   postgres.Storage
 	chStorage   clickhouse.Storage
@@ -155,12 +158,13 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		mplxPrice: price,
 	})
 	a = &api{
-		conf:         cfg.API,
-		router:       initAPIServer(),
-		routerAPIDoc: initAPIServer(),
-		waitGroup:    &sync.WaitGroup{},
-		ctx:          ctx,
-		ctxCancel:    cancelFunc,
+		conf:          cfg.API,
+		router:        initAPIServer(),
+		routerAPIDoc:  initAPIServer(),
+		metricsServer: initMetricsServer(),
+		waitGroup:     &sync.WaitGroup{},
+		ctx:           ctx,
+		ctxCancel:     cancelFunc,
 
 		pgStorage: pgStorage,
 		chStorage: chStorage,
@@ -253,6 +257,36 @@ func initAPIServer() *echo.Echo {
 	return s
 }
 
+func initMetricsServer() *echo.Echo {
+	s := echo.New()
+	echo2.SetupServer(s, false)
+	s.HideBanner = true
+
+	s.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		DisableStackAll: true,
+		LogErrorFunc:    echo2.LogPanic,
+	}))
+	s.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogMethod: true,
+		LogError:  true,
+		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error != nil {
+				log.Logger.API.Errorf("metrics: code %d method %s: %s", v.Status, v.Method, v.Error)
+			}
+			return nil
+		},
+	}))
+
+	prom := prometheus.NewPrometheus("aura_api", nil, metrics.MetricList())
+	// Setup metrics endpoint at another server
+	prom.SetMetricsPath(s)
+
+	metrics.InitStartTime()
+
+	return s
+}
+
 // @title						Swagger Aura
 // @version					0.0.3
 // @description				Swagger API server for Aura API.
@@ -300,6 +334,8 @@ func (a *api) initAPIHandlers(authMiddleware *middlewares.AuthMiddleware) {
 	paymentGroup.GET("/link", a.getPaymentLink)
 	paymentGroup.GET("/status", a.getPaymentStatus)
 	paymentGroup.GET("/history", a.getPaymentHistory)
+
+	a.router.Use(metrics.Middleware())
 }
 
 func (a *api) Run() (err error) {
@@ -333,6 +369,19 @@ func (a *api) RunAPIDoc() (err error) {
 	} else {
 		err = a.routerAPIDoc.Start(addr)
 	}
+	if err != http.ErrServerClosed { //nolint:errorlint
+		return err
+	}
+
+	return nil
+}
+
+func (a *api) RunMetrics() (err error) {
+	if a.conf.MetricsPort == 0 {
+		return nil
+	}
+
+	err = a.metricsServer.Start(fmt.Sprintf(":%d", a.conf.MetricsPort))
 	if err != http.ErrServerClosed { //nolint:errorlint
 		return err
 	}

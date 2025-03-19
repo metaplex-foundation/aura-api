@@ -11,6 +11,7 @@ import (
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-co-op/gocron"
 	consulAPI "github.com/hashicorp/consul/api"
@@ -47,7 +48,10 @@ func (c *Collector) RunStatsCollector(ctx context.Context) {
 			log.Logger.Collector.Errorf("collectLatestStat: %s", err)
 		}
 
-		log.Logger.Collector.Debugf("collectLatestStat: time elapsed %s", time.Since(timeNow))
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("StatsCollector", duration)
+		log.Logger.Collector.Debugf("collectLatestStat: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)

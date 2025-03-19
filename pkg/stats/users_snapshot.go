@@ -7,6 +7,7 @@ import (
 	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/go-co-op/gocron"
 )
 
@@ -34,7 +35,10 @@ func (c *UsersSnapshot) RunUsersSnapshotJob(ctx context.Context) {
 			log.Logger.Collector.Errorf("createSnapshot: %s", err)
 		}
 
-		log.Logger.Collector.Debugf("createSnapshot: time elapsed %s", time.Since(timeNow))
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("UsersSnapshotJob", duration)
+		log.Logger.Collector.Debugf("createSnapshot: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)

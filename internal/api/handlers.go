@@ -12,6 +12,7 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/util"
 	echoUtil "github.com/adm-metaex/aura-api/pkg/util/echo"
 )
@@ -631,6 +632,8 @@ func (a *api) getPaymentLink(c echo.Context) (err error) {
 		log.Logger.API.Errorf("getPaymentLink: generateSolanaPayPaymentLink: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError)
 	}
+
+	metrics.IncCryptoPaymentsProcessedTotalCnt("initiated")
 
 	return c.JSON(http.StatusOK, paymentLink)
 }
