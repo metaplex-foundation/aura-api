@@ -9,6 +9,7 @@ services:
     ports:
       - "${API_PORT}:${API_PORT}"
       - "${API_SWAGGER_PORT}:${API_SWAGGER_PORT}"
+      - "${API_METRICS_PORT}:${API_METRICS_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
       - ./ssl:/ssl
@@ -33,6 +34,7 @@ services:
     ports:
       - "${STATS_API_PORT}:${STATS_API_PORT}"
       - "${STATS_API_SWAGGER_PORT}:${STATS_API_SWAGGER_PORT}"
+      - "${STATS_API_METRICS_PORT}:${STATS_API_METRICS_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
       - ./ssl:/ssl
