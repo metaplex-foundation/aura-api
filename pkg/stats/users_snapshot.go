@@ -57,7 +57,7 @@ func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
 	}
 
 	snapshot := postgres.UsersSnapshot{
-		Day:         time.Now().UTC().Truncate(24 * time.Hour),
+		Day:         yesterday.Truncate(24 * time.Hour),
 		ActiveUsers: numberOfActiveUsers,
 	}
 
