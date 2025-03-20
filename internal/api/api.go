@@ -142,7 +142,7 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 	statsCollector := stats.New(pgStorage, chStorage, *consulClient)
 
-	usersSnapshot := stats.NewUsersSnapshotJob(pgStorage, chStorage)
+	usersSnapshot := stats.NewUsersSnapshotJob(&pgStorage, &chStorage)
 
 	rewardsCalculator := rewards.New(&pgStorage, &chStorage)
 

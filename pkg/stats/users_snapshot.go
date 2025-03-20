@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/go-co-op/gocron"
 )
@@ -15,11 +14,19 @@ const (
 )
 
 type UsersSnapshot struct {
-	pgStorage postgres.Storage
-	chStorage clickhouse.Storage
+	pgStorage UserStorage
+	chStorage ActiveUsersSource
 }
 
-func NewUsersSnapshotJob(pgStorage postgres.Storage, chStorage clickhouse.Storage) (c UsersSnapshot) {
+type ActiveUsersSource interface {
+	GetNumberOfActiveUsersForDay(context.Context, time.Time) (int64, error)
+}
+type UserStorage interface {
+	GetCurrentUsersCountByPlans(context.Context) ([]models.UserCountByPlan, error)
+	SaveUsersSnapshot(context.Context, models.UsersSnapshot) error
+}
+
+func NewUsersSnapshotJob(pgStorage UserStorage, chStorage ActiveUsersSource) (c UsersSnapshot) {
 
 	return UsersSnapshot{pgStorage: pgStorage, chStorage: chStorage}
 }
@@ -56,7 +63,7 @@ func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
 		return err
 	}
 
-	snapshot := postgres.UsersSnapshot{
+	snapshot := models.UsersSnapshot{
 		Day:         time.Now().UTC().Truncate(24 * time.Hour),
 		ActiveUsers: numberOfActiveUsers,
 	}
