@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-co-op/gocron"
 	"github.com/shopspring/decimal"
@@ -43,11 +43,24 @@ type (
 )
 
 type RewardsCalculator struct {
-	pgStorage postgres.UserSubscriptionStorage
-	chStorage clickhouse.UsageStatisticsStorage
+	pgStorage UserSubscriptionStorage
+	chStorage UsageStatisticsStorage
 }
 
-func New(pgStorage postgres.UserSubscriptionStorage, chStorage clickhouse.UsageStatisticsStorage) (c RewardsCalculator) {
+type UserSubscriptionStorage interface {
+	GetCountOfSubscriptionUsersByDay(ctx context.Context, subscriptionId int, day time.Time) (int64, error)
+	GetSubscrPriceAndDurationById(ctx context.Context, subscriptionId int) (models.SubscrPriceAndDuration, error)
+	SaveProvidersRewards(ctx context.Context, rewards map[string]int64, day time.Time) error
+	GetMaxCalculatedRewardsData(ctx context.Context) (*time.Time, error)
+}
+
+type UsageStatisticsStorage interface {
+	GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) ([]models.DailyAggregatedRequests, error)
+	GetDailySubscriptionRequests(ctx context.Context, day time.Time) ([]models.DailyAggregatedRequests, error)
+	GetProvidersRequestsServed(ctx context.Context, day time.Time) ([]models.DailyProvidersStat, error)
+}
+
+func New(pgStorage UserSubscriptionStorage, chStorage UsageStatisticsStorage) (c RewardsCalculator) {
 
 	return RewardsCalculator{pgStorage: pgStorage, chStorage: chStorage}
 }
@@ -62,7 +75,10 @@ func (c *RewardsCalculator) RunRewardsCalculation(ctx context.Context) {
 			log.Logger.Collector.Errorf("CalculateAndSaveRewards: %s", err)
 		}
 
-		log.Logger.Collector.Debugf("RunRewardsCalculation: time elapsed %s", time.Since(timeNow))
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("RewardsCalculation", duration)
+		log.Logger.Collector.Debugf("RunRewardsCalculation: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)

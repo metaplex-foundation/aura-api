@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adm-metaex/aura-api/internal/models"
 	customErrors "github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-pg/pg/v10"
 )
@@ -16,11 +17,6 @@ type (
 		TokenLimit int64     `pg:"sbs_tokens_limit" json:"token_limit"`
 		Priority   int64     `pg:"sbs_priority" json:"priority"`
 		CreatedAt  time.Time `pg:"sbs_created_at" json:"-"`
-	}
-
-	SubscrPriceAndDuration struct {
-		SbsPriceMplx    int64 `pg:"sbs_price_mplx" json:"sbs_price_mplx"`
-		SbsDurationDays int64 `pg:"sbs_period_days" json:"sbs_period_days"`
 	}
 )
 
@@ -39,7 +35,7 @@ func (s *Storage) GetSubscriptionsList(ctx context.Context) (subscriptions []Pla
 	return subscriptions, nil
 }
 
-func (s *Storage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptionId int) (sbsInfo SubscrPriceAndDuration, err error) {
+func (s *Storage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptionId int) (sbsInfo models.SubscrPriceAndDuration, err error) {
 	query := `SELECT sbs_price_mplx, sbs_period_days FROM subscriptions WHERE sbs_id = ?;`
 	_, err = s.db.QueryContext(ctx, &sbsInfo, query, subscriptionId)
 	if err != nil {

@@ -2,13 +2,14 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api:v0.5.5
+    image: ghcr.io/adm-metaex/aura-api:develop-4695f6d
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
     ports:
       - "${API_PORT}:${API_PORT}"
       - "${API_SWAGGER_PORT}:${API_SWAGGER_PORT}"
+      - "${API_METRICS_PORT}:${API_METRICS_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
       - ./ssl:/ssl
@@ -27,12 +28,13 @@ services:
       - aura-gw=healthy
   aura-stats-api:
     container_name: aura-stats-api
-    image: ghcr.io/adm-metaex/aura-statsapi:v0.5.5
+    image: ghcr.io/adm-metaex/aura-statsapi:develop-4695f6d
     restart: unless-stopped
     tty: true
     ports:
       - "${STATS_API_PORT}:${STATS_API_PORT}"
       - "${STATS_API_SWAGGER_PORT}:${STATS_API_SWAGGER_PORT}"
+      - "${STATS_API_METRICS_PORT}:${STATS_API_METRICS_PORT}"
     volumes:
       - ./creds/API_CERT_FILE:/creds/API_CERT_FILE:ro
       - ./ssl:/ssl
