@@ -64,7 +64,7 @@ func init() {
 		"request_execution_time",
 		"Description",
 		[]string{apiMethodArg, successArg},
-		[]float64{1, 5, 10, 25, 50, 100, 500, 800, 1000, 2000, 4000, 8000, 10000, 15000, 20000, 30000, 50000, 100000, 200000},
+		[]float64{1, 5, 10, 25, 50, 100, 500, 800, 1000, 2000, 4000, 8000, 15000, 20000, 30000, 50000, 100000},
 	))
 
 	initMetric(&metrics.backgroundWorkerExecutionTime, newHistogram(

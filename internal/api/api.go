@@ -381,6 +381,8 @@ func (a *api) RunMetrics() (err error) {
 		return nil
 	}
 
+	log.Logger.API.Infof("Metrics server started on %d port", a.conf.MetricsPort)
+
 	err = a.metricsServer.Start(fmt.Sprintf(":%d", a.conf.MetricsPort))
 	if err != http.ErrServerClosed { //nolint:errorlint
 		return err
