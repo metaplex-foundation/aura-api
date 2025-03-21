@@ -64,7 +64,7 @@ func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
 	}
 
 	snapshot := models.UsersSnapshot{
-		Day:         time.Now().UTC().Truncate(24 * time.Hour),
+		Day:         yesterday.Truncate(24 * time.Hour),
 		ActiveUsers: numberOfActiveUsers,
 	}
 
