@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
-	"github.com/adm-metaex/aura-api/internal/storage/postgres"
+	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/pkg/rewards"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -27,9 +26,9 @@ func (m *MockPGStorage) GetCountOfSubscriptionUsersByDay(ctx context.Context, su
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockPGStorage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptionId int) (postgres.SubscrPriceAndDuration, error) {
+func (m *MockPGStorage) GetSubscrPriceAndDurationById(ctx context.Context, subscriptionId int) (models.SubscrPriceAndDuration, error) {
 	args := m.Called(ctx, subscriptionId)
-	return args.Get(0).(postgres.SubscrPriceAndDuration), args.Error(1)
+	return args.Get(0).(models.SubscrPriceAndDuration), args.Error(1)
 }
 
 func (m *MockPGStorage) SaveProvidersRewards(ctx context.Context, rewards map[string]int64, day time.Time) error {
@@ -43,19 +42,19 @@ func (m *MockPGStorage) GetMaxCalculatedRewardsData(ctx context.Context) (day *t
 }
 
 // Mock implementations for CH Storage
-func (m *MockCHStorage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) ([]clickhouse.DailyAggregatedRequests, error) {
+func (m *MockCHStorage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) ([]models.DailyAggregatedRequests, error) {
 	args := m.Called(ctx, day)
-	return args.Get(0).([]clickhouse.DailyAggregatedRequests), args.Error(1)
+	return args.Get(0).([]models.DailyAggregatedRequests), args.Error(1)
 }
 
-func (m *MockCHStorage) GetDailySubscriptionRequests(ctx context.Context, day time.Time) ([]clickhouse.DailyAggregatedRequests, error) {
+func (m *MockCHStorage) GetDailySubscriptionRequests(ctx context.Context, day time.Time) ([]models.DailyAggregatedRequests, error) {
 	args := m.Called(ctx, day)
-	return args.Get(0).([]clickhouse.DailyAggregatedRequests), args.Error(1)
+	return args.Get(0).([]models.DailyAggregatedRequests), args.Error(1)
 }
 
-func (m *MockCHStorage) GetProvidersRequestsServed(ctx context.Context, day time.Time) ([]clickhouse.DailyProvidersStat, error) {
+func (m *MockCHStorage) GetProvidersRequestsServed(ctx context.Context, day time.Time) ([]models.DailyProvidersStat, error) {
 	args := m.Called(ctx, day)
-	return args.Get(0).([]clickhouse.DailyProvidersStat), args.Error(1)
+	return args.Get(0).([]models.DailyProvidersStat), args.Error(1)
 }
 
 func TestCalculateRewardsForDay(t *testing.T) {
@@ -67,12 +66,12 @@ func TestCalculateRewardsForDay(t *testing.T) {
 	ctx := context.Background()
 	testDay := time.Date(2025, 2, 25, 0, 0, 0, 0, time.UTC)
 
-	advancedPlanDetails := postgres.SubscrPriceAndDuration{
+	advancedPlanDetails := models.SubscrPriceAndDuration{
 		SbsPriceMplx:    500000000,
 		SbsDurationDays: 30,
 	}
 
-	proPlanDetails := postgres.SubscrPriceAndDuration{
+	proPlanDetails := models.SubscrPriceAndDuration{
 		SbsPriceMplx:    1500000000,
 		SbsDurationDays: 30,
 	}
@@ -89,7 +88,7 @@ func TestCalculateRewardsForDay(t *testing.T) {
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, advancedPlanId).Return(advancedPlanDetails, nil)
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, proPlanId).Return(proPlanDetails, nil)
 
-		payAsYouGoRequests := []clickhouse.DailyAggregatedRequests{
+		payAsYouGoRequests := []models.DailyAggregatedRequests{
 			{
 				RequestType:  "type1",
 				Chain:        "chain1",
@@ -111,7 +110,7 @@ func TestCalculateRewardsForDay(t *testing.T) {
 			},
 		}
 
-		subscriptionRequests := []clickhouse.DailyAggregatedRequests{
+		subscriptionRequests := []models.DailyAggregatedRequests{
 			{
 				RequestType:  "type1",
 				Chain:        "chain1",
@@ -126,7 +125,7 @@ func TestCalculateRewardsForDay(t *testing.T) {
 			},
 		}
 
-		providersRequests := []clickhouse.DailyProvidersStat{
+		providersRequests := []models.DailyProvidersStat{
 			{
 				Provider:     "provider1",
 				Chain:        "chain1",
@@ -174,7 +173,7 @@ func TestCalculateRewardsForDay(t *testing.T) {
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, advancedPlanId).Return(advancedPlanDetails, nil)
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, proPlanId).Return(proPlanDetails, nil)
 
-		payAsYouGoRequests := []clickhouse.DailyAggregatedRequests{
+		payAsYouGoRequests := []models.DailyAggregatedRequests{
 			{
 				RequestType:  "type1",
 				Chain:        "chain1",
@@ -183,9 +182,9 @@ func TestCalculateRewardsForDay(t *testing.T) {
 			},
 		}
 
-		subscriptionRequests := []clickhouse.DailyAggregatedRequests{}
+		subscriptionRequests := []models.DailyAggregatedRequests{}
 
-		providersRequests := []clickhouse.DailyProvidersStat{
+		providersRequests := []models.DailyProvidersStat{
 			{
 				Provider:     "provider1",
 				Chain:        "chain1",
@@ -219,9 +218,9 @@ func TestCalculateRewardsForDay(t *testing.T) {
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, advancedPlanId).Return(advancedPlanDetails, nil)
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, proPlanId).Return(proPlanDetails, nil)
 
-		payAsYouGoRequests := []clickhouse.DailyAggregatedRequests{}
+		payAsYouGoRequests := []models.DailyAggregatedRequests{}
 
-		subscriptionRequests := []clickhouse.DailyAggregatedRequests{
+		subscriptionRequests := []models.DailyAggregatedRequests{
 			{
 				RequestType:  "type1",
 				Chain:        "chain1",
@@ -248,7 +247,7 @@ func TestCalculateRewardsForDay(t *testing.T) {
 			},
 		}
 
-		providersRequests := []clickhouse.DailyProvidersStat{
+		providersRequests := []models.DailyProvidersStat{
 			{
 				Provider:     "provider1",
 				Chain:        "chain1",
@@ -317,9 +316,9 @@ func TestCalculateRewardsForDay(t *testing.T) {
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, advancedPlanId).Return(advancedPlanDetails, nil)
 		mockPG.On("GetSubscrPriceAndDurationById", ctx, proPlanId).Return(proPlanDetails, nil)
 
-		mockCH.On("GetDailyPayAsYouGoRequests", ctx, testDay).Return([]clickhouse.DailyAggregatedRequests{}, nil)
-		mockCH.On("GetDailySubscriptionRequests", ctx, testDay).Return([]clickhouse.DailyAggregatedRequests{}, nil)
-		mockCH.On("GetProvidersRequestsServed", ctx, testDay).Return([]clickhouse.DailyProvidersStat{}, nil)
+		mockCH.On("GetDailyPayAsYouGoRequests", ctx, testDay).Return([]models.DailyAggregatedRequests{}, nil)
+		mockCH.On("GetDailySubscriptionRequests", ctx, testDay).Return([]models.DailyAggregatedRequests{}, nil)
+		mockCH.On("GetProvidersRequestsServed", ctx, testDay).Return([]models.DailyProvidersStat{}, nil)
 
 		expectedRewards := map[string]int64{}
 
