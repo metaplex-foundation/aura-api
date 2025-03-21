@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/pkg/log"
 )
 
@@ -21,20 +22,6 @@ type (
 
 	// there is enum type in providers_requests_daily_summary ClickHouse table with two variants
 	PaymentPlan int
-
-	DailyAggregatedRequests struct {
-		RequestType  string `json:"request_type"`
-		Chain        string `json:"chain"`
-		RequestPrice int64  `json:"price_per_request"`
-		RequestCount int64  `json:"num_of_requests"`
-	}
-
-	DailyProvidersStat struct {
-		Provider     string `json:"provider"`
-		RequestType  string `json:"request_type"`
-		Chain        string `json:"chain"`
-		RequestCount int64  `json:"num_of_requests"`
-	}
 )
 
 const (
@@ -197,7 +184,7 @@ func (s *Storage) SaveAggregatedProvidersStat(ctx context.Context, aggregatedDat
 	return nil
 }
 
-func (s *Storage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) (result []DailyAggregatedRequests, err error) {
+func (s *Storage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time) (result []models.DailyAggregatedRequests, err error) {
 	// safe to use any() func here because price will alway be the same for pairs (request_type, chain)
 	query := fmt.Sprintf(`
 		SELECT
@@ -218,7 +205,7 @@ func (s *Storage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time)
 	defer rows.Close()
 
 	for rows.Next() {
-		var entry DailyAggregatedRequests
+		var entry models.DailyAggregatedRequests
 		if err = rows.Scan(&entry.RequestType, &entry.Chain, &entry.RequestPrice, &entry.RequestCount); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
@@ -227,7 +214,7 @@ func (s *Storage) GetDailyPayAsYouGoRequests(ctx context.Context, day time.Time)
 	return result, nil
 }
 
-func (s *Storage) GetDailySubscriptionRequests(ctx context.Context, day time.Time) (result []DailyAggregatedRequests, err error) {
+func (s *Storage) GetDailySubscriptionRequests(ctx context.Context, day time.Time) (result []models.DailyAggregatedRequests, err error) {
 	// safe to use any() func here because price will alway be the same for pairs (request_type, chain)
 	query := fmt.Sprintf(`
 		SELECT
@@ -248,7 +235,7 @@ func (s *Storage) GetDailySubscriptionRequests(ctx context.Context, day time.Tim
 	defer rows.Close()
 
 	for rows.Next() {
-		var entry DailyAggregatedRequests
+		var entry models.DailyAggregatedRequests
 		if err = rows.Scan(&entry.RequestType, &entry.Chain, &entry.RequestPrice, &entry.RequestCount); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}
@@ -257,7 +244,7 @@ func (s *Storage) GetDailySubscriptionRequests(ctx context.Context, day time.Tim
 	return result, nil
 }
 
-func (s *Storage) GetProvidersRequestsServed(ctx context.Context, day time.Time) (result []DailyProvidersStat, err error) {
+func (s *Storage) GetProvidersRequestsServed(ctx context.Context, day time.Time) (result []models.DailyProvidersStat, err error) {
 	query := fmt.Sprintf(`
 		SELECT
 			provider,
@@ -275,7 +262,7 @@ func (s *Storage) GetProvidersRequestsServed(ctx context.Context, day time.Time)
 	defer rows.Close()
 
 	for rows.Next() {
-		var entry DailyProvidersStat
+		var entry models.DailyProvidersStat
 		if err = rows.Scan(&entry.Provider, &entry.Chain, &entry.RequestType, &entry.RequestCount); err != nil {
 			return nil, fmt.Errorf("scan: %s", err)
 		}

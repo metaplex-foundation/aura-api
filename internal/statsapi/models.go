@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/labstack/echo/v4"
@@ -143,7 +144,7 @@ func getDailyRequestsResponse(initialData []clickhouse.RequestsByChainAndType) (
 	return result
 }
 
-func getDailyUsersSnapshotResponse(initialData []postgres.UsersSnapshot) (result DailyUsersSnapshotResponse) {
+func getDailyUsersSnapshotResponse(initialData []models.UsersSnapshot) (result DailyUsersSnapshotResponse) {
 	for _, el := range initialData {
 		result.DailyUsersSnapshot = append(result.DailyUsersSnapshot, struct {
 			Day                   time.Time "json:\"day\""
