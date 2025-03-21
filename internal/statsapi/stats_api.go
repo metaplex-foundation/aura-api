@@ -14,8 +14,10 @@ import (
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
 	"github.com/google/uuid"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -23,13 +25,14 @@ import (
 )
 
 type statsApi struct { //nolint:govet
-	conf         configtypes.StatsAPIConfig
-	certData     []byte
-	router       *echo.Echo
-	routerAPIDoc *echo.Echo
-	waitGroup    *sync.WaitGroup
-	ctx          context.Context
-	ctxCancel    context.CancelFunc
+	conf          configtypes.StatsAPIConfig
+	certData      []byte
+	router        *echo.Echo
+	routerAPIDoc  *echo.Echo
+	metricsServer *echo.Echo
+	waitGroup     *sync.WaitGroup
+	ctx           context.Context
+	ctxCancel     context.CancelFunc
 
 	pgStorage postgres.Storage
 	chStorage clickhouse.Storage
@@ -60,12 +63,13 @@ func NewAPI(mainCtx context.Context, cfg config.StatsAPIConfig) (a *statsApi, er
 	}
 
 	a = &statsApi{
-		conf:         cfg.API,
-		router:       initAPIServer(cfg.API.AllowedOrigins),
-		routerAPIDoc: initAPIServer(cfg.API.AllowedOrigins),
-		waitGroup:    &sync.WaitGroup{},
-		ctx:          ctx,
-		ctxCancel:    cancelFunc,
+		conf:          cfg.API,
+		router:        initAPIServer(cfg.API.AllowedOrigins),
+		routerAPIDoc:  initAPIServer(cfg.API.AllowedOrigins),
+		metricsServer: initMetricsServer(),
+		waitGroup:     &sync.WaitGroup{},
+		ctx:           ctx,
+		ctxCancel:     cancelFunc,
 
 		pgStorage: pgStorage,
 		chStorage: chStorage,
@@ -132,6 +136,8 @@ func (a *statsApi) initAPIHandlers() {
 
 	a.router.GET("/metrics/requests/daily", a.getDailyRequests)
 	a.router.GET("/metrics/users/daily", a.getDailyUsersSnapshot)
+
+	a.router.Use(metrics.Middleware())
 }
 
 func (a *statsApi) Run() (err error) {
@@ -155,6 +161,49 @@ func (a *statsApi) RunAPIDoc() (err error) {
 	} else {
 		err = a.routerAPIDoc.Start(addr)
 	}
+	if err != http.ErrServerClosed { //nolint:errorlint
+		return err
+	}
+
+	return nil
+}
+
+func initMetricsServer() *echo.Echo {
+	s := echo.New()
+	echo2.SetupServer(s, false)
+	s.HideBanner = true
+
+	s.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
+		DisableStackAll: true,
+		LogErrorFunc:    echo2.LogPanic,
+	}))
+	s.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogMethod: true,
+		LogError:  true,
+		LogValuesFunc: func(_ echo.Context, v middleware.RequestLoggerValues) error {
+			if v.Error != nil {
+				log.Logger.API.Errorf("metrics: code %d method %s: %s", v.Status, v.Method, v.Error)
+			}
+			return nil
+		},
+	}))
+
+	prom := prometheus.NewPrometheus("aura_stats_api", nil, metrics.MetricList())
+	// Setup metrics endpoint at another server
+	prom.SetMetricsPath(s)
+
+	metrics.InitStartTime()
+
+	return s
+}
+
+func (a *statsApi) RunMetrics() (err error) {
+	if a.conf.MetricsPort == 0 {
+		return nil
+	}
+
+	err = a.metricsServer.Start(fmt.Sprintf(":%d", a.conf.MetricsPort))
 	if err != http.ErrServerClosed { //nolint:errorlint
 		return err
 	}

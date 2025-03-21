@@ -7,6 +7,7 @@ import (
 
 	"github.com/adm-metaex/aura-api/internal/models"
 	"github.com/adm-metaex/aura-api/pkg/log"
+	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-co-op/gocron"
 	"github.com/shopspring/decimal"
@@ -74,7 +75,10 @@ func (c *RewardsCalculator) RunRewardsCalculation(ctx context.Context) {
 			log.Logger.Collector.Errorf("CalculateAndSaveRewards: %s", err)
 		}
 
-		log.Logger.Collector.Debugf("RunRewardsCalculation: time elapsed %s", time.Since(timeNow))
+		duration := time.Since(timeNow)
+
+		metrics.ObserveBackgroundWorkerExecutionTime("RewardsCalculation", duration)
+		log.Logger.Collector.Debugf("RunRewardsCalculation: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)
