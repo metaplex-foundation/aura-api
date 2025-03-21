@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-pg/pg/v10"
 
+	"github.com/adm-metaex/aura-api/internal/models"
 	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 )
 
@@ -31,20 +32,6 @@ type (
 		MplxBalance        int64      `pg:"usr_mplx_balance"`
 		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
 		APIKeys            []string   `pg:"api_keys"`
-	}
-
-	UserCountByPlan struct {
-		SubscriptionId int8  `pg:"subscription"`
-		Count          int64 `pg:"users_count"`
-	}
-
-	UsersSnapshot struct {
-		Day                   time.Time `pg:"urs_day" json:"day"`
-		ProSubscriptions      int64     `pg:"urs_pro_subscriptions" json:"pro_subscriptions"`
-		AdvancedSubscriptions int64     `pg:"urs_advanced_subscriptions" json:"advanced_subscriptions"`
-		PayAsYouGo            int64     `pg:"urs_pay_as_you_go" json:"pay_as_you_go"`
-		ActiveUsers           int64     `pg:"urs_active_users" json:"active_users"`
-		TotalUsers            int64     `pg:"urs_total_users" json:"total_users"`
 	}
 
 	Count struct {
@@ -242,7 +229,7 @@ func (s *Storage) GetCountOfSubscriptionUsersByDay(ctx context.Context, subscrip
 	return result.Count, nil
 }
 
-func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []UserCountByPlan, err error) {
+func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []models.UserCountByPlan, err error) {
 	query := `SELECT
 				sbs_id as subscription,
 				COUNT(*) as users_count
@@ -263,7 +250,7 @@ func (s *Storage) GetCurrentUsersCountByPlans(ctx context.Context) (result []Use
 	return result, nil
 }
 
-func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot UsersSnapshot) (err error) {
+func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot models.UsersSnapshot) (err error) {
 	query := `INSERT INTO users_snapshot (urs_day, urs_pro_subscriptions, urs_advanced_subscriptions, urs_pay_as_you_go, urs_active_users, urs_total_users)
 			VALUES (?,?,?,?,?,?);`
 	_, err = s.db.ExecContext(ctx, query, snapshot.Day, snapshot.ProSubscriptions, snapshot.AdvancedSubscriptions, snapshot.PayAsYouGo, snapshot.ActiveUsers, snapshot.TotalUsers)
@@ -274,7 +261,7 @@ func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot UsersSnapshot)
 	return nil
 }
 
-func (s *Storage) GetDailyUserSnapshots(ctx context.Context, startDay time.Time, endDay time.Time) (result []UsersSnapshot, err error) {
+func (s *Storage) GetDailyUserSnapshots(ctx context.Context, startDay time.Time, endDay time.Time) (result []models.UsersSnapshot, err error) {
 	if startDay.After(endDay) {
 		return result, fmt.Errorf("failed to get daily users snapshot because start day cannot be gibber than end data: %v and %v", startDay, endDay)
 	}
