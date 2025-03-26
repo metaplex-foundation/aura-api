@@ -261,6 +261,16 @@ func (s *Storage) SaveUsersSnapshot(ctx context.Context, snapshot models.UsersSn
 	return nil
 }
 
+func (s *Storage) EnhanceUsersSnapshotWithActiveUsers(ctx context.Context, day time.Time, numberOfActiveUsers int64) (err error) {
+	query := `UPDATE users_snapshot SET urs_active_users = ? WHERE urs_day = ?;`
+	_, err = s.db.ExecContext(ctx, query, numberOfActiveUsers, day)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Storage) GetDailyUserSnapshots(ctx context.Context, startDay time.Time, endDay time.Time) (result []models.UsersSnapshot, err error) {
 	if startDay.After(endDay) {
 		return result, fmt.Errorf("failed to get daily users snapshot because start day cannot be gibber than end data: %v and %v", startDay, endDay)
