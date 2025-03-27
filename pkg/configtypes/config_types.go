@@ -32,7 +32,7 @@ type (
 		CertFile       string   `envconfig:"STATS_API_CERT_FILE" required:"false" split_words:"true"`
 		Port           uint64   `envconfig:"STATS_API_PORT" required:"true" split_words:"true"`
 		SwaggerPort    uint64   `envconfig:"STATS_API_SWAGGER_PORT" required:"true" split_words:"true"`
-		MetricsPort    uint64   `required:"true" split_words:"true"`
+		MetricsPort    uint64   `envconfig:"STATS_API_METRICS_PORT" required:"true" split_words:"true"`
 		AllowedOrigins []string `envconfig:"STATS_API_ALLOWED_ORIGINS" required:"true" split_words:"true"`
 	}
 )
