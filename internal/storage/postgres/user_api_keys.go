@@ -22,6 +22,7 @@ type (
 		CreatedAt     time.Time  `pg:"uak_created_at" json:"created_at"`
 		DeletedAt     *time.Time `pg:"uak_deleted_at" json:"deleted_at"`
 		LastUsed      *time.Time `pg:"uak_last_used_at" json:"last_used"`
+		Deprecated    bool       `pg:"deprecated" json:"deprecated"`
 	}
 	APIKeyWithSupportedNetworks struct {
 		APIKey
@@ -74,12 +75,11 @@ func (s *Storage) GetAPIKeysByUser(ctx context.Context, userID int64, showDelete
 		return nil, ErrEmptyUserID
 	}
 
-	q := sq.Select("uak_id, usr_id, uak_name, uak_token, uak_created_at, uak_deleted_at, uak_total_requests, uak_last_used_at, JSON_AGG(networks.ntw_name) AS supported_networks").
+	q := sq.Select("uak_id, usr_id, uak_name, uak_token, uak_created_at, uak_deleted_at, uak_total_requests, uak_last_used_at, deprecated, JSON_AGG(networks.ntw_name) AS supported_networks").
 		From(apiKeysTable).
 		LeftJoin("user_api_keys_networks USING(uak_id)").
 		LeftJoin("networks USING(ntw_id)").
 		Where("usr_id = ?", userID).
-		Where("deprecated = false").
 		GroupBy("uak_id").
 		OrderBy("uak_created_at DESC")
 
