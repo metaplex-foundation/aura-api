@@ -2,7 +2,7 @@
 services:
   aura-api:
     container_name: aura-api
-    image: ghcr.io/adm-metaex/aura-api:feature-mtg-1485-return-deprecated-keys-b920aae
+    image: ghcr.io/adm-metaex/aura-api:develop-0330be6
     restart: unless-stopped
     #    entrypoint: "sleep 600"
     tty: true
@@ -28,7 +28,7 @@ services:
       - aura-gw=healthy
   aura-stats-api:
     container_name: aura-stats-api
-    image: ghcr.io/adm-metaex/aura-statsapi:feature-mtg-1485-return-deprecated-keys-b920aae
+    image: ghcr.io/adm-metaex/aura-statsapi:develop-0330be6
     restart: unless-stopped
     tty: true
     ports:
