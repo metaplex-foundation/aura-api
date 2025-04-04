@@ -22,6 +22,11 @@ type (
 		ActiveUsers           int64     `pg:"urs_active_users" json:"active_users"`
 		TotalUsers            int64     `pg:"urs_total_users" json:"total_users"`
 	}
+
+	UsrIDs struct {
+		DBId      int64
+		DynamicId string
+	}
 )
 
 // ClickHouse models

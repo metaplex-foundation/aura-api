@@ -12,7 +12,8 @@ service Aura {
   rpc BatchInsertStats(BatchInsertStatsReq) returns (google.protobuf.Empty) {}
   rpc IncreaseUserRequests(IncreaseUserRequestsReq) returns (google.protobuf.Empty) {}
   // PosgreSQL
-  rpc GetUserInfo(GetUserInfoReq) returns (GetUserInfoResp) {}
+  rpc GetAllUsers(google.protobuf.Empty) returns (stream GetUserInfoResp) {}
+  rpc GetUserInfo(stream GetUserInfoReq) returns (stream GetUserInfoResp) {}
   rpc GetSubscriptions(google.protobuf.Empty) returns (GetSubscriptionsResp) {}
 }
 
@@ -82,6 +83,8 @@ message UserWithTokens {
   int64 mplx_balance = 3;
   google.protobuf.Timestamp subscription_ends_on = 4;
   repeated string tokens = 5;
+  repeated string deleted_tokens = 6;
+  repeated string deprecated_tokens = 7;
 }
 
 message PricingModel {

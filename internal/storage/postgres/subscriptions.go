@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/adm-metaex/aura-api/internal/models"
+	log "github.com/adm-metaex/aura-api/pkg/log"
 	customErrors "github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-pg/pg/v10"
 )
@@ -133,6 +134,12 @@ func (s *Storage) UpgradeUserSubscriptionPlan(ctx context.Context, usrID int64, 
 
 	if err = tx.Commit(ctx); err != nil {
 		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
+	}
+
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: usrID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in UpgradeUserSubscriptionPlan()")
 	}
 
 	return nil
@@ -320,6 +327,14 @@ func (s *Storage) RenewExpiredPaymentPlans(ctx context.Context) error {
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return &customErrors.PgTransactionError{Msg: fmt.Sprintf("Failed to commit transaction: %v", err)}
+	}
+
+	if s.userNotifier != nil {
+		for _, userID := range usersIDs {
+			go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: userID})
+		}
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in RenewExpiredPaymentPlans()")
 	}
 
 	return nil

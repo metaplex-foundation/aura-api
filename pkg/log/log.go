@@ -6,6 +6,7 @@ import (
 
 type typedLog struct {
 	API       *log.Entry
+	Postgre   *log.Entry
 	StatsAPI  *log.Entry
 	Collector *log.Entry
 	General   *log.Entry
@@ -19,6 +20,7 @@ var (
 func init() {
 	Logger = &typedLog{
 		API:       log.WithFields(log.Fields{"module": "api"}),
+		Postgre:   log.WithFields(log.Fields{"module": "postgre"}),
 		StatsAPI:  log.WithFields(log.Fields{"module": "statsapi"}),
 		Collector: log.WithFields(log.Fields{"module": "collector"}),
 		General:   log.WithFields(log.Fields{"module": "general"}),

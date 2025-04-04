@@ -9,6 +9,7 @@ import (
 	"github.com/go-pg/pg/v10"
 
 	"github.com/adm-metaex/aura-api/internal/models"
+	log "github.com/adm-metaex/aura-api/pkg/log"
 	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 )
 
@@ -27,11 +28,23 @@ type (
 		NextPlan    Plan `pg:"next" json:"next_plan"`
 	}
 	UserWithAPIKeys struct {
+		UserID             int64      `pg:"usr_id"`
 		DynamicID          string     `pg:"usr_dynamic_id"`
 		SubscriptionID     int64      `pg:"sbs_id"`
 		MplxBalance        int64      `pg:"usr_mplx_balance"`
 		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
 		APIKeys            []string   `pg:"api_keys"`
+	}
+
+	UserWithDeletedAPIKeys struct {
+		UserID             int64      `pg:"usr_id"`
+		DynamicID          string     `pg:"usr_dynamic_id"`
+		SubscriptionID     int64      `pg:"sbs_id"`
+		MplxBalance        int64      `pg:"usr_mplx_balance"`
+		SubscriptionEndsOn *time.Time `pg:"usr_sbs_ends_on"`
+		ActiveAPIKeys      []string   `pg:"active_api_keys"`
+		DeletedAPIKeys     []string   `pg:"deleted_api_keys"`
+		DeprecatedAPIKeys  []string   `pg:"deprecated_api_keys"`
 	}
 
 	Count struct {
@@ -84,6 +97,12 @@ func (s *Storage) CreateUser(ctx context.Context, dynamicID string) error {
 	_, err := s.db.ExecContext(ctx, query, dynamicID)
 	if err != nil {
 		return err
+	}
+
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DynamicId: dynamicID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in CreateUser()")
 	}
 
 	return nil
@@ -147,7 +166,86 @@ func (s *Storage) GetUser(ctx context.Context, dynamicID string) (u UserWithPlan
 	return u, nil
 }
 
-func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserWithAPIKeys, err error) {
+func (s *Storage) GetUserWithKeysByDynamicId(ctx context.Context, dynamicID string) (u UserWithDeletedAPIKeys, err error) {
+	if dynamicID == "" {
+		return u, ErrEmptyDynamicID
+	}
+
+	query := `SELECT
+			users.usr_dynamic_id,
+			users.sbs_id,
+			users.usr_mplx_balance,
+			users.usr_sbs_ends_on,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) AS active_api_keys,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NOT NULL) AS deleted_api_keys,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.deprecated IS true) AS deprecated_api_keys
+		FROM users
+		WHERE users.usr_dynamic_id = ?;`
+
+	_, err = s.db.QueryOneContext(ctx, &u, query, dynamicID)
+	if err != nil {
+		return u, err
+	}
+
+	return u, nil
+}
+
+func (s *Storage) GetUserWithKeysById(ctx context.Context, userID int64) (u UserWithDeletedAPIKeys, err error) {
+	query := `SELECT
+			users.usr_dynamic_id,
+			users.sbs_id,
+			users.usr_mplx_balance,
+			users.usr_sbs_ends_on,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) AS active_api_keys,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NOT NULL) AS deleted_api_keys,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.deprecated IS true) AS deprecated_api_keys
+		FROM users
+		WHERE users.usr_id = ?;`
+
+	_, err = s.db.QueryOneContext(ctx, &u, query, userID)
+	if err != nil {
+		return u, err
+	}
+
+	return u, nil
+}
+
+func (s *Storage) GetUsersWithKeys(ctx context.Context, startFrom int64, limit int16) (result []UserWithAPIKeys, err error) {
+	query := `SELECT
+			users.usr_id,
+			users.usr_dynamic_id,
+			users.sbs_id,
+			users.usr_mplx_balance,
+			users.usr_sbs_ends_on,
+			(SELECT json_agg(user_api_keys.uak_token) 
+				FROM user_api_keys 
+					WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) AS api_keys
+		FROM users
+		WHERE users.usr_id >= ?
+		ORDER BY users.usr_id
+		LIMIT ?;`
+
+	_, err = s.db.QueryContext(ctx, &result, query, startFrom, limit)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserWithDeletedAPIKeys, err error) {
 	if apiToken == "" {
 		return u, errors.New("empty token")
 	}
@@ -159,7 +257,13 @@ func (s *Storage) GetUserByAPIKey(ctx context.Context, apiToken string) (u UserW
 	    users.usr_sbs_ends_on,
 	    (SELECT json_agg(user_api_keys.uak_token) 
 			FROM user_api_keys 
-				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) as api_keys
+				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NULL AND user_api_keys.deprecated IS false) as active_api_keys,
+		(SELECT json_agg(user_api_keys.uak_token) 
+			FROM user_api_keys 
+				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.uak_deleted_at IS NOT NULL) AS deleted_api_keys,
+		(SELECT json_agg(user_api_keys.uak_token) 
+			FROM user_api_keys 
+				WHERE user_api_keys.usr_id = users.usr_id AND user_api_keys.deprecated IS true) AS deprecated_api_keys
 	FROM 
 	    users
 	LEFT JOIN 
@@ -183,6 +287,8 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 		return fmt.Errorf("beginTx: %s", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+
+	updatedUsers := make([]string, len(req.GetReqs()))
 
 	// TODO: sort items in map
 	for userID, chains := range req.GetReqs() {
@@ -208,11 +314,21 @@ func (s *Storage) UpdateUserBalances(req *auraProto.IncreaseUserRequestsReq) err
 		if err != nil {
 			return fmt.Errorf("exec user %s: %w", userID, err)
 		}
+
+		updatedUsers = append(updatedUsers, userID)
 	}
 
 	err = tx.Commit(context.Background())
 	if err != nil {
 		return fmt.Errorf("commit: %s", err)
+	}
+
+	if s.userNotifier != nil {
+		for _, userDynamicID := range updatedUsers {
+			go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DynamicId: userDynamicID})
+		}
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in UpdateUserBalances()")
 	}
 
 	return nil

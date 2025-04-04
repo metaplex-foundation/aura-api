@@ -36,6 +36,7 @@ import (
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/metrics"
 	"github.com/adm-metaex/aura-api/pkg/proto"
+	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 	"github.com/adm-metaex/aura-api/pkg/rewards"
 	"github.com/adm-metaex/aura-api/pkg/stats"
 	echo2 "github.com/adm-metaex/aura-api/pkg/util/echo"
@@ -69,6 +70,8 @@ type api struct { //nolint:govet // aligned to 176 bytes
 	statsCollector    stats.Collector
 	rewardsCalculator rewards.RewardsCalculator
 	usersSnapshot     stats.UsersSnapshot
+
+	userUpdatesChannel chan auraProto.GetUserInfoResp
 }
 
 const (
@@ -87,10 +90,15 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 		}
 	}()
 
+	userUpdatesChannel := make(chan auraProto.GetUserInfoResp)
+
 	pgStorage, err := postgres.New(mainCtx, cfg.PG)
 	if err != nil {
 		return nil, fmt.Errorf("PG storage init: %s", err)
 	}
+	var notifier postgres.UsrUpdateNotifier = &pgStorage
+	pgStorage.SetupUserNotifier(notifier, userUpdatesChannel)
+
 	chStorage, err := clickhouse.NewAndMigrate(cfg.CH, cfg.API.Hostname)
 	if err != nil {
 		return nil, fmt.Errorf("CH storage init: %s", err)
@@ -149,14 +157,19 @@ func NewAPI(mainCtx context.Context, cfg config.Config) (a *api, err error) { //
 
 	rewardsCalculator := rewards.New(&pgStorage, &chStorage)
 
-	// TODO: add consul watching
+	auraGrpcServer := auraServer{
+		pgStorage:     &pgStorage,
+		chStorage:     chStorage,
+		pricing:       pricing,
+		mplxPrice:     price,
+		clients:       make(map[string]auraProto.Aura_GetUserInfoServer),
+		notifications: userUpdatesChannel,
+	}
+
+	go auraGrpcServer.trackNotifications()
+
 	g := grpc.NewServer()
-	proto.RegisterAuraServer(g, &auraServer{
-		pgStorage: &pgStorage,
-		chStorage: chStorage,
-		pricing:   pricing,
-		mplxPrice: price,
-	})
+	proto.RegisterAuraServer(g, &auraGrpcServer)
 	a = &api{
 		conf:          cfg.API,
 		router:        initAPIServer(),
