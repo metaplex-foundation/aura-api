@@ -114,7 +114,7 @@ func (s *auraServer) trackNotifications() {
 		for id, stream := range s.clients {
 			err := stream.Send(&update)
 			if err != nil {
-				log.Logger.API.Error("Error during sending update to the stream: %s", err)
+				log.Logger.API.Errorf("Error during sending update to the stream: %s", err)
 				log.Logger.API.Warn("terminating the stream")
 				delete(s.clients, id)
 			}
