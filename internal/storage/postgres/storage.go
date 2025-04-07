@@ -7,17 +7,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adm-metaex/aura-api/internal/models"
+	log "github.com/adm-metaex/aura-api/pkg/log"
+	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 	"github.com/go-pg/migrations/v8"
 	"github.com/go-pg/pg/v10"
 	"github.com/go-pg/pg/v10/orm"
-	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
 )
 
+type UsrUpdateNotifier interface {
+	NotifyUserUpdate(UsrIDs models.UsrIDs) error
+}
+
+// In case we need a DB object which should not notify anyone about updates
+type NullNotifier struct{}
+
+func (n *NullNotifier) NotifyUserUpdate(UsrIDs models.UsrIDs) error {
+	// Do nothing
+	return nil
+}
+
 type Storage struct {
-	db   orm.DB
-	isTx bool
+	db           orm.DB
+	isTx         bool
+	userNotifier UsrUpdateNotifier
+	updatedUsers chan auraProto.GetUserInfoResp
 }
 
 var (
@@ -78,14 +95,26 @@ func New(ctx context.Context, cfg configtypes.PostgresConfig) (s Storage, err er
 	}
 
 	if newVersion != oldVersion {
-		log.Infof("PG migrated from version %d to %d", oldVersion, newVersion)
+		log.Logger.Postgre.Infof("PG migrated from version %d to %d", oldVersion, newVersion)
 	} else {
-		log.Infof("PG migration version is %d", oldVersion)
+		log.Logger.Postgre.Infof("PG migration version is %d", oldVersion)
 	}
 
-	return Storage{
-		db: db,
-	}, nil
+	s = Storage{
+		db:           db,
+		userNotifier: &NullNotifier{},
+	}
+
+	return s, nil
+}
+
+func (s *Storage) IsNotifierNil() bool {
+	return s.userNotifier == nil
+}
+
+func (s *Storage) SetupUserNotifier(userNotifier UsrUpdateNotifier, updatedUsers chan auraProto.GetUserInfoResp) {
+	s.userNotifier = userNotifier
+	s.updatedUsers = updatedUsers
 }
 
 func (s *Storage) BeginTx(ctx context.Context) (ss Storage, err error) {
@@ -99,8 +128,10 @@ func (s *Storage) BeginTx(ctx context.Context) (ss Storage, err error) {
 	}
 
 	return Storage{
-		db:   tx,
-		isTx: true,
+		db:           tx,
+		isTx:         true,
+		userNotifier: s.userNotifier,
+		updatedUsers: s.updatedUsers,
 	}, nil
 }
 
@@ -118,6 +149,47 @@ func (s *Storage) Commit(ctx context.Context) error {
 	}
 
 	return s.db.(*pg.Tx).CommitContext(ctx)
+}
+
+func (s *Storage) NotifyUserUpdate(userIDs models.UsrIDs) (err error) {
+	var u UserWithDeletedAPIKeys
+
+	if userIDs.DynamicId != "" {
+		u, err = s.GetUserWithKeysByDynamicId(context.TODO(), userIDs.DynamicId)
+		if err != nil {
+			log.Logger.Postgre.Error("NotifyUserUpdate GetUserWithKeysByDynamicId error: ", err)
+			return err
+		}
+	} else if userIDs.DBId > 0 {
+		u, err = s.GetUserWithKeysById(context.TODO(), userIDs.DBId)
+		if err != nil {
+			log.Logger.Postgre.Error("NotifyUserUpdate GetUserWithKeysByDynamicId error: ", err)
+			return err
+		}
+	} else {
+		return nil
+	}
+
+	var subscriptionEndsOn *timestamppb.Timestamp
+	if u.SubscriptionEndsOn != nil {
+		subscriptionEndsOn = timestamppb.New(*u.SubscriptionEndsOn)
+	}
+
+	w := auraProto.GetUserInfoResp{
+		User: &auraProto.UserWithTokens{
+			User:               u.DynamicID,
+			SubscriptionId:     u.SubscriptionID,
+			MplxBalance:        u.MplxBalance,
+			SubscriptionEndsOn: subscriptionEndsOn,
+			Tokens:             u.ActiveAPIKeys,
+			DeletedTokens:      u.DeletedAPIKeys,
+			DeprecatedTokens:   u.DeprecatedAPIKeys,
+		},
+	}
+
+	s.updatedUsers <- w
+
+	return err
 }
 
 func IsErrViolateConstraint(err error) bool {

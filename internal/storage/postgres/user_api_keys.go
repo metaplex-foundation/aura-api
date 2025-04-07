@@ -7,6 +7,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/adm-metaex/aura-api/internal/models"
+	log "github.com/adm-metaex/aura-api/pkg/log"
 	customErrors "github.com/adm-metaex/aura-api/pkg/util"
 	"github.com/go-pg/pg/v10"
 	"github.com/google/uuid"
@@ -65,6 +67,12 @@ func (s *Storage) CreateAPIKey(ctx context.Context, userID int64, name string, n
 
 	if err = tx.Commit(ctx); err != nil {
 		return apiKey, fmt.Errorf("commit: %w", err)
+	}
+
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: userID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in CreateAPIKey()")
 	}
 
 	return apiKey, nil
@@ -173,6 +181,12 @@ func (s *Storage) DeleteAPIKey(ctx context.Context, apiKeyToken uuid.UUID, userD
 		return err
 	}
 
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DynamicId: userDynamicID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in DeleteAPIKey()")
+	}
+
 	return nil
 }
 
@@ -240,6 +254,13 @@ func (s *Storage) DeprecateAPIKeys(ctx context.Context, userID, keysDiff, nextSu
 	if _, err := s.db.ExecContext(ctx, query, userID, keysDiff, userID, userID, nextSubscriptionID, userID, keysDiff); err != nil {
 		return &customErrors.PgUpdateError{Msg: err.Error()}
 	}
+
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: userID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in DeprecateAPIKeys()")
+	}
+
 	return nil
 }
 
@@ -266,6 +287,13 @@ func (s *Storage) RestoreAPIKeys(ctx context.Context, userID, keysDiff int64) er
 	if _, err := s.db.ExecContext(ctx, query, userID, userID, keysDiff); err != nil {
 		return &customErrors.PgUpdateError{Msg: err.Error()}
 	}
+
+	if s.userNotifier != nil {
+		go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: userID})
+	} else {
+		log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in RestoreAPIKeys()")
+	}
+
 	return nil
 }
 

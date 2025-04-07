@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/adm-metaex/aura-api/internal/models"
+	log "github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/gagliardetto/solana-go"
 	"github.com/go-pg/pg/v10"
 )
@@ -84,6 +86,12 @@ func (s *Storage) UpdatePayments(ctx context.Context, transfers []TransferInfo) 
 		_, err = tx.db.ExecOneContext(ctx, balanceUpdateQuery, transfer.Amount, payment.UserID)
 		if err != nil {
 			return fmt.Errorf("ExecOneContext (balance update): %w", err)
+		}
+
+		if s.userNotifier != nil {
+			go s.userNotifier.NotifyUserUpdate(models.UsrIDs{DBId: payment.UserID})
+		} else {
+			log.Logger.Postgre.Warn("userNotifier is not declared for storage. Attempt to call it in UpdatePayments()")
 		}
 	}
 

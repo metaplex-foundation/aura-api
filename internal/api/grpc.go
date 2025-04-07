@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"io"
+	"sync"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,6 +14,7 @@ import (
 	"github.com/adm-metaex/aura-api/internal/storage/clickhouse"
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/configtypes"
+	"github.com/adm-metaex/aura-api/pkg/log"
 	auraProto "github.com/adm-metaex/aura-api/pkg/proto"
 	"github.com/adm-metaex/aura-api/pkg/util"
 )
@@ -23,6 +27,12 @@ type auraServer struct {
 
 	pricing   configtypes.PricingPlans
 	mplxPrice decimal.Decimal
+
+	mu      sync.Mutex
+	clients map[string]auraProto.Aura_GetUserInfoServer
+
+	// Aura API will have copy of this channel to send updates here
+	notifications chan auraProto.GetUserInfoResp
 }
 
 // ClickHouse
@@ -50,24 +60,106 @@ func (s *auraServer) IncreaseUserRequests(_ context.Context, in *auraProto.Incre
 	return new(emptypb.Empty), nil
 }
 
-func (s *auraServer) GetUserInfo(ctx context.Context, in *auraProto.GetUserInfoReq) (*auraProto.GetUserInfoResp, error) {
-	u, err := s.pgStorage.GetUserByAPIKey(ctx, in.GetApiToken())
-	if err != nil {
-		return nil, err
+func (s *auraServer) GetUserInfo(stream auraProto.Aura_GetUserInfoServer) error {
+	clientIdentificator := uuid.New().String()
+
+	s.mu.Lock()
+	s.clients[clientIdentificator] = stream
+	s.mu.Unlock()
+
+	// once something went wrong with user communication - drop the stream
+	defer func() {
+		s.mu.Lock()
+		delete(s.clients, clientIdentificator)
+		s.mu.Unlock()
+	}()
+
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		u, err := s.pgStorage.GetUserByAPIKey(stream.Context(), in.GetApiToken())
+		if err != nil {
+			return err
+		}
+
+		var subscriptionEndsOn *timestamppb.Timestamp
+		if u.SubscriptionEndsOn != nil {
+			subscriptionEndsOn = timestamppb.New(*u.SubscriptionEndsOn)
+		}
+
+		err = stream.Send(&auraProto.GetUserInfoResp{
+			User: &auraProto.UserWithTokens{
+				User:               u.DynamicID,
+				SubscriptionId:     u.SubscriptionID,
+				MplxBalance:        u.MplxBalance,
+				SubscriptionEndsOn: subscriptionEndsOn,
+				Tokens:             u.ActiveAPIKeys,
+				DeletedTokens:      u.DeletedAPIKeys,
+				DeprecatedTokens:   u.DeprecatedAPIKeys,
+			},
+		})
 	}
-	var subscriptionEndsOn *timestamppb.Timestamp
-	if u.SubscriptionEndsOn != nil {
-		subscriptionEndsOn = timestamppb.New(*u.SubscriptionEndsOn)
+}
+
+func (s *auraServer) trackNotifications() {
+	for update := range s.notifications {
+		s.mu.Lock()
+
+		for id, stream := range s.clients {
+			err := stream.Send(&update)
+			if err != nil {
+				log.Logger.API.Errorf("Error during sending update to the stream: %s", err)
+				log.Logger.API.Warn("terminating the stream")
+				delete(s.clients, id)
+			}
+		}
+		s.mu.Unlock()
 	}
-	return &auraProto.GetUserInfoResp{
-		User: &auraProto.UserWithTokens{
-			User:               u.DynamicID,
-			SubscriptionId:     u.SubscriptionID,
-			MplxBalance:        u.MplxBalance,
-			SubscriptionEndsOn: subscriptionEndsOn,
-			Tokens:             u.APIKeys,
-		},
-	}, nil
+}
+
+func (s *auraServer) GetAllUsers(_ *emptypb.Empty, stream auraProto.Aura_GetAllUsersServer) error {
+	var startFrom int64
+	startFrom = 1
+	limit := 500
+	for {
+		users, err := s.pgStorage.GetUsersWithKeys(stream.Context(), startFrom, int16(limit))
+		if err != nil {
+			return err
+		}
+
+		if len(users) == 0 {
+			break
+		}
+
+		for _, usr := range users {
+			var subscriptionEndsOn *timestamppb.Timestamp
+			if usr.SubscriptionEndsOn != nil {
+				subscriptionEndsOn = timestamppb.New(*usr.SubscriptionEndsOn)
+			}
+
+			err = stream.Send(&auraProto.GetUserInfoResp{
+				User: &auraProto.UserWithTokens{
+					User:               usr.DynamicID,
+					SubscriptionId:     usr.SubscriptionID,
+					MplxBalance:        usr.MplxBalance,
+					SubscriptionEndsOn: subscriptionEndsOn,
+					Tokens:             usr.APIKeys,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		startFrom = users[len(users)-1].UserID + 1
+	}
+	return nil
 }
 
 func (s *auraServer) GetSubscriptions(ctx context.Context, _ *emptypb.Empty) (*auraProto.GetSubscriptionsResp, error) {
