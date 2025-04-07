@@ -4,7 +4,6 @@ services:
     container_name: aura-api
     image: ghcr.io/adm-metaex/aura-api:develop-8a819b3
     restart: unless-stopped
-    #    entrypoint: "sleep 600"
     tty: true
     ports:
       - "${API_PORT}:${API_PORT}"
