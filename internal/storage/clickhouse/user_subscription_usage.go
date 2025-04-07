@@ -46,6 +46,7 @@ func (r CreditsUsageHistory) BuildDefault(rpcMethod, network *string, token *uui
 		"solana-das":         0,
 		"eclipse-das":        0,
 		"getProgramAccounts": 0,
+		"websocket":          0,
 	}
 
 	return r
@@ -211,12 +212,12 @@ func getNetworkType(chain, requestType string) string {
 		"solana:RPC":        "solana",
 		"solana:DAS":        "solana-das",
 		"solana:GPA":        "getProgramAccounts",
-		"solana:Websocket":  "solana",
+		"solana:Websocket":  "websocket",
 		"solana:SWQOS":      "solana",
 		"eclipse:RPC":       "eclipse",
 		"eclipse:DAS":       "eclipse-das",
 		"eclipse:GPA":       "getProgramAccounts",
-		"eclipse:Websocket": "eclipse",
+		"eclipse:Websocket": "websocket",
 		"eclipse:SWQOS":     "eclipse",
 	}
 
@@ -262,7 +263,7 @@ func processCreditsUsageData(usageData []CreditsUsageWithReqType) []CreditsUsage
 		return result[i].Timestamp.Before(result[j].Timestamp)
 	})
 
-	standardNetworks := []string{"solana", "eclipse", "getProgramAccounts", "solana-das", "eclipse-das"}
+	standardNetworks := []string{"solana", "eclipse", "getProgramAccounts", "solana-das", "eclipse-das", "websocket"}
 	for i := range result {
 		for _, network := range standardNetworks {
 			if _, exists := result[i].Networks[network]; !exists {
