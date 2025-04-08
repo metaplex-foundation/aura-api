@@ -19,6 +19,7 @@ import (
 	"github.com/adm-metaex/aura-api/internal/storage/postgres"
 	"github.com/adm-metaex/aura-api/pkg/log"
 	"github.com/adm-metaex/aura-api/pkg/metrics"
+	"github.com/adm-metaex/aura-api/pkg/stats"
 )
 
 var metaplexToken = solana.MustPublicKeyFromBase58("METAewgxyPbgwsseH8T16a39CQ5VyVxZi9zXiDPY18m")
@@ -150,7 +151,12 @@ func (p *paymentsWatcher) renewExpiredPaymentPlans(ctx context.Context) {
 	_, err := cron.Every(1).Day().At("00:00").Do(func() {
 		timeNow := time.Now()
 
-		err := p.pgStorage.RenewExpiredPaymentPlans(ctx)
+		err := stats.InitializeUsersSnapshot(ctx, p.pgStorage)
+		if err != nil {
+			log.Logger.API.Errorf("InitializeUsersSnapshot: %s", err)
+		}
+
+		err = p.pgStorage.RenewExpiredPaymentPlans(ctx)
 		if err != nil {
 			log.Logger.API.Errorf("CancelUnpaidPayments: %s", err)
 		}

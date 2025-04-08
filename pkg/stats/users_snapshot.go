@@ -25,6 +25,7 @@ type ActiveUsersSource interface {
 type UserStorage interface {
 	GetCurrentUsersCountByPlans(context.Context) ([]models.UserCountByPlan, error)
 	SaveUsersSnapshot(context.Context, models.UsersSnapshot) error
+	EnhanceUsersSnapshotWithActiveUsers(context.Context, time.Time, int64) error
 }
 
 func NewUsersSnapshotJob(pgStorage UserStorage, chStorage ActiveUsersSource) (c UsersSnapshot) {
@@ -34,18 +35,18 @@ func NewUsersSnapshotJob(pgStorage UserStorage, chStorage ActiveUsersSource) (c 
 
 func (c *UsersSnapshot) RunUsersSnapshotJob(ctx context.Context) {
 	cron := gocron.NewScheduler(time.UTC)
-	_, err := cron.Every(1).Day().At(dailyCollectorStartTime).Do(func() {
+	_, err := cron.Every(1).Day().At(dailyUserSnapshotStartTime).Do(func() {
 		timeNow := time.Now()
 
-		err := c.createSnapshot(ctx)
+		err := c.enhanceSnapshot(ctx)
 		if err != nil {
-			log.Logger.Collector.Errorf("createSnapshot: %s", err)
+			log.Logger.Collector.Errorf("enhanceSnapshot: %s", err)
 		}
 
 		duration := time.Since(timeNow)
 
 		metrics.ObserveBackgroundWorkerExecutionTime("UsersSnapshotJob", duration)
-		log.Logger.Collector.Debugf("createSnapshot: time elapsed %s", duration)
+		log.Logger.Collector.Debugf("enhanceSnapshot: time elapsed %s", duration)
 	})
 	if err != nil {
 		log.Logger.Collector.Fatalf("cron: %s", err)
@@ -54,22 +55,32 @@ func (c *UsersSnapshot) RunUsersSnapshotJob(ctx context.Context) {
 	cron.StartAsync()
 }
 
-func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
-	usersByPlans, err := c.pgStorage.GetCurrentUsersCountByPlans(ctx)
-	if err != nil {
-		return err
-	}
-
-	yesterday := time.Now().AddDate(0, 0, -1).UTC()
+func (c *UsersSnapshot) enhanceSnapshot(ctx context.Context) error {
+	yesterday := time.Now().AddDate(0, 0, -1).UTC().Truncate(24 * time.Hour)
 
 	numberOfActiveUsers, err := c.chStorage.GetNumberOfActiveUsersForDay(ctx, yesterday)
 	if err != nil {
 		return err
 	}
 
+	err = c.pgStorage.EnhanceUsersSnapshotWithActiveUsers(ctx, yesterday, numberOfActiveUsers)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func InitializeUsersSnapshot(ctx context.Context, storage UserStorage) error {
+	usersByPlans, err := storage.GetCurrentUsersCountByPlans(ctx)
+	if err != nil {
+		return err
+	}
+
+	yesterday := time.Now().AddDate(0, 0, -1).UTC()
+
 	snapshot := models.UsersSnapshot{
-		Day:         yesterday.Truncate(24 * time.Hour),
-		ActiveUsers: numberOfActiveUsers,
+		Day: yesterday.Truncate(24 * time.Hour),
 	}
 
 	for _, data := range usersByPlans {
@@ -94,7 +105,7 @@ func (c *UsersSnapshot) createSnapshot(ctx context.Context) error {
 		snapshot.TotalUsers += data.Count
 	}
 
-	err = c.pgStorage.SaveUsersSnapshot(ctx, snapshot)
+	err = storage.SaveUsersSnapshot(ctx, snapshot)
 
 	return err
 }
