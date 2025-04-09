@@ -382,7 +382,13 @@ func (s *Storage) GetResponseTimeHistory(
 		if entry.Token != nil && *entry.Token == defaultUUID {
 			entry.Token = nil
 		}
-		result = append(result, entry)
+
+		// we should not include in response rows with 0 response time
+		// that may happen only for WS requests, they have only execution time
+		// execution time indicates how long was WS open
+		if *entry.AvgResponseTimeMs > 0 {
+			result = append(result, entry)
+		}
 	}
 	return fillGaps(result, startTime, granularity, rpcMethod, chain, tknUUID), nil
 }
